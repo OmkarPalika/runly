@@ -1,0 +1,50 @@
+{
+  "name": "@omkarpalika/runbox",
+  "version": "0.1.0",
+  "description": "Run JavaScript, TypeScript, Python and SQL in the browser, sandboxed, with no server.",
+  "keywords": [
+    "code-runner",
+    "sandbox",
+    "webassembly",
+    "pyodide",
+    "micropython",
+    "sqlite",
+    "playground",
+    "browser"
+  ],
+  "license": "MIT",
+  "author": "Omkar Palika",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OmkarPalika/runbox.git"
+  },
+  "homepage": "https://github.com/OmkarPalika/runbox#readme",
+  "bugs": "https://github.com/OmkarPalika/runbox/issues",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json && esbuild node_modules/sucrase/dist/esm/index.js --bundle --format=esm --minify --platform=browser --legal-comments=eof --outfile=dist/runtimes/sucrase.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/unit/*.test.js",
+    "test:e2e": "npm run build && playwright test",
+    "prepublishOnly": "npm test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "esbuild": "^0.28.2",
+    "sucrase": "^3.35.1",
+    "typescript": "5.9.3"
+  }
+}
