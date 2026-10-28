@@ -1,11 +1,11 @@
 {
-  "name": "runly-go",
+  "name": "sandrun-go",
   "version": "0.1.0",
-  "description": "The yaegi Go interpreter built for WASI, used by runly to run Go in the browser.",
+  "description": "The yaegi Go interpreter built for WASI, used by sandrun to run Go in the browser.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OmkarPalika/runly.git",
+    "url": "git+https://github.com/OmkarPalika/sandrun.git",
     "directory": "runtimes/go"
   },
   "files": ["yaegi.wasm", "LICENSE"],

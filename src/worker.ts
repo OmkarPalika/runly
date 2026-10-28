@@ -37,10 +37,10 @@ export function workerMain(): void {
 
   const pythonStdin = (input: string) =>
     [
-      "_runly_lines = iter(" + JSON.stringify(input.split("\n")) + ")",
+      "_sandrun_lines = iter(" + JSON.stringify(input.split("\n")) + ")",
       "def input(prompt=''):",
       "    try:",
-      "        return next(_runly_lines)",
+      "        return next(_sandrun_lines)",
       "    except StopIteration:",
       "        raise EOFError('EOF when reading a line')",
     ].join("\n")

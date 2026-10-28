@@ -1,5 +1,5 @@
 // Serves the repo for the benchmark. Runno needs cross-origin isolation, so its
-// page gets COOP/COEP headers; runly's page doesn't need them.
+// page gets COOP/COEP headers; sandrun's page doesn't need them.
 import { createServer } from "node:http"
 import { readFile } from "node:fs/promises"
 import { extname, join, normalize } from "node:path"

@@ -1,5 +1,5 @@
 {
-  "name": "runly",
+  "name": "sandrun",
   "version": "0.1.0",
   "description": "Run JavaScript, TypeScript, Python, SQL, C, C++, Go, Java and Ruby in the browser, sandboxed, with no server.",
   "keywords": [
@@ -16,10 +16,10 @@
   "author": "Omkar Palika",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OmkarPalika/runly.git"
+    "url": "git+https://github.com/OmkarPalika/sandrun.git"
   },
-  "homepage": "https://github.com/OmkarPalika/runly#readme",
-  "bugs": "https://github.com/OmkarPalika/runly/issues",
+  "homepage": "https://github.com/OmkarPalika/sandrun#readme",
+  "bugs": "https://github.com/OmkarPalika/sandrun/issues",
   "type": "module",
   "exports": {
     ".": {

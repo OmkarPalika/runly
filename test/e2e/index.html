@@ -2,14 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>runly test page</title>
+    <title>sandrun test page</title>
   </head>
   <body>
     <script type="module">
-      import * as runly from "/dist/index.js"
-      window.runly = runly
+      import * as sandrun from "/dist/index.js"
+      window.sandrun = sandrun
       // Runtimes built in this repo are served locally until they are published.
-      window.runner = runly.createRunner({
+      window.runner = sandrun.createRunner({
         timeoutMs: 3000,
         runtimes: {
           sucrase: location.origin + "/dist/runtimes/sucrase.js",

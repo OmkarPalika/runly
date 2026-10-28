@@ -1,4 +1,4 @@
-# runly
+# sandrun
 
 Run JavaScript, TypeScript, Python, SQL, C, C++, Go, Java and Ruby in the browser.
 No server, no API keys.
@@ -8,7 +8,7 @@ is thrown away after every run. It can't see the host page, its cookies or its
 storage, and it can only make network requests to the hosts the runtimes load from.
 
 ```js
-import { createRunner } from "runly"
+import { createRunner } from "sandrun"
 
 const runner = createRunner()
 
@@ -26,7 +26,7 @@ result.exitCode // 0
 ## Install
 
 ```sh
-npm install runly
+npm install sandrun
 ```
 
 It's a browser-only ES module. It has no dependencies; runtimes are downloaded
@@ -169,18 +169,18 @@ yourself, copy the files and point `runtimes` at them:
 ```js
 createRunner({
   runtimes: {
-    sucrase: "https://static.example.com/runly/sucrase.js",
+    sucrase: "https://static.example.com/sandrun/sucrase.js",
     micropython: "https://static.example.com/micropython/",
     pyodide: "https://static.example.com/pyodide/",
     sqljs: "https://static.example.com/sql.js/",
-    wasi: "https://static.example.com/runly/wasi.js",
-    xccjs: "https://static.example.com/runly/xcc.js",
+    wasi: "https://static.example.com/sandrun/wasi.js",
+    xccjs: "https://static.example.com/sandrun/xcc.js",
     xcc: "https://static.example.com/xcc-wasm/",
-    mrubyjs: "https://static.example.com/runly/mruby.js",
+    mrubyjs: "https://static.example.com/sandrun/mruby.js",
     mruby: "https://static.example.com/mruby-wasm-js/",
     clang: "https://static.example.com/yowasp-clang/",
-    go: "https://static.example.com/runly-go/",
-    java: "https://static.example.com/runly-java/",
+    go: "https://static.example.com/sandrun-go/",
+    java: "https://static.example.com/sandrun-java/",
     rubyjs: "https://static.example.com/ruby-wasm-wasi/",
     ruby: "https://static.example.com/ruby-3.4-wasm-wasi/",
   },
@@ -207,13 +207,13 @@ network access to exactly these hosts.
 
 ## How it compares
 
-runly is for one job: running short snippets inside a page (docs, blog posts,
+sandrun is for one job: running short snippets inside a page (docs, blog posts,
 tutorials) without running a server. Other projects solve neighbouring problems
 and are often a better fit:
 
 | | Where code runs | Server needed | Languages | Best for |
 |---|---|---|---|---|
-| **runly** | Visitor's browser | No | JS, TS, Python, SQL, C, C++, Go, Java, Ruby | Embedding runnable snippets with a small API |
+| **sandrun** | Visitor's browser | No | JS, TS, Python, SQL, C, C++, Go, Java, Ruby | Embedding runnable snippets with a small API |
 | [Piston](https://github.com/engineer-man/piston) | Your server (Docker) | Yes | Dozens, including compiled ones | Many languages, if you can run and secure a server |
 | [Judge0](https://github.com/judge0/judge0) | Your server or hosted API | Yes | Dozens | Online judges and grading, with limits per submission |
 | [Runno](https://github.com/taybenlor/runno) | Visitor's browser (WASI) | No | Python, Ruby, JS, C/C++, PHP, SQLite | Ready-made web components with a terminal UI |
@@ -222,7 +222,7 @@ and are often a better fit:
 | [JupyterLite](https://github.com/jupyterlite/jupyterlite) | Visitor's browser | No | Python and other kernels | Whole notebooks, not inline snippets |
 | [WebContainers](https://webcontainers.io) | Visitor's browser | No | Node.js | Running Node projects; commercial use needs a licence |
 
-What runly does differently:
+What sandrun does differently:
 
 - **Smallest download that works.** Each runtime loads only when a run needs
   it. Plain Python runs on MicroPython (~300 KB) and only switches to Pyodide
@@ -237,18 +237,18 @@ What runly does differently:
   need a runtime at all.
 
 Rust isn't supported: its compiler is too large to ship to a browser. For Rust,
-or for languages runly doesn't cover, use Piston or Judge0 on a server.
+or for languages sandrun doesn't cover, use Piston or Judge0 on a server.
 
 ## Benchmark
 
-runly against [Runno](https://github.com/taybenlor/runno) 0.10.0 on Chromium.
+sandrun against [Runno](https://github.com/taybenlor/runno) 0.10.0 on Chromium.
 Each program sums the integers below 1,000,000 and prints the result.
 
 - **First run**: fresh page, empty browser cache (download, start-up and run).
 - **Next run**: the same code again on the same page.
 - **After reload**: first run after reloading the page, files in the HTTP cache.
 
-| Language | runly first run | runly next run | runly after reload | Runno first run | Runno next run | Runno after reload |
+| Language | sandrun first run | sandrun next run | sandrun after reload | Runno first run | Runno next run | Runno after reload |
 |---|---|---|---|---|---|---|
 | JavaScript | **31 ms** | **11 ms** | **19 ms** | 1.03 s | 217 ms | 225 ms |
 | Python | **1.25 s** | **1.03 s** | **1.03 s** | 3.15 s | 2.59 s | 1.92 s |
@@ -281,8 +281,8 @@ npm run test:e2e                  # browser tests (needs network for the CDN run
 ```
 
 The Go and Java runtimes are published as separate packages
-([runly-go](runtimes/go) and [runly-java](runtimes/java)) so that installing
-runly doesn't pull tens of megabytes into your `node_modules`.
+([sandrun-go](runtimes/go) and [sandrun-java](runtimes/java)) so that installing
+sandrun doesn't pull tens of megabytes into your `node_modules`.
 
 ## License
 

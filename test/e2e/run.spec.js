@@ -81,7 +81,7 @@ test("infinite loops are stopped by the timeout", async ({ page }) => {
 
 test("output is capped", async ({ page }) => {
   const res = await page.evaluate(() =>
-    window.runly
+    window.sandrun
       .createRunner({ maxOutputBytes: 100 })
       .run({ language: "javascript", code: "for (;;) console.log('x'.repeat(50))" }),
   )
@@ -252,7 +252,7 @@ test("c uses xcc by default", async ({ page }) => {
 
 test("c can use clang instead", async ({ page }) => {
   const res = await page.evaluate(() =>
-    window.runly
+    window.sandrun
       .createRunner({ c: "clang", runtimes: { wasi: location.origin + "/dist/runtimes/wasi.js" } })
       .run({ language: "c", code: '#include <stdio.h>\nint main(void) { puts("clang"); return 0; }' }),
   )
