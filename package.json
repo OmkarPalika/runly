@@ -1,5 +1,5 @@
 {
-  "name": "sandrun",
+  "name": "@sandrun/sandrun",
   "version": "0.1.0",
   "description": "Run JavaScript, TypeScript, Python, SQL, C, C++, Go, Java and Ruby in the browser, sandboxed, with no server.",
   "keywords": [

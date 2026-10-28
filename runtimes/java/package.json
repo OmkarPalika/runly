@@ -1,5 +1,5 @@
 {
-  "name": "sandrun-java",
+  "name": "@sandrun/java",
   "version": "0.1.0",
   "description": "teavm-javac (OpenJDK javac plus TeaVM, compiled to WebAssembly), used by sandrun to run Java in the browser.",
   "license": "Apache-2.0 AND GPL-2.0-only WITH Classpath-exception-2.0",

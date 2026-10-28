@@ -21,9 +21,9 @@ export interface RuntimeUrls {
   xcc: string
   /** Root of the @yowasp/clang package (gen/bundle.js and its assets). */
   clang: string
-  /** Directory containing yaegi.wasm (the sandrun-go package). */
+  /** Directory containing yaegi.wasm (the @sandrun/go package). */
   go: string
-  /** Directory containing the TeaVM javac build (the sandrun-java package). */
+  /** Directory containing the TeaVM javac build (the @sandrun/java package). */
   java: string
   /** ES module URL of the mruby glue (a single-file build ships in this package). */
   mrubyjs: string
@@ -36,17 +36,17 @@ export interface RuntimeUrls {
 }
 
 export const DEFAULT_RUNTIMES: RuntimeUrls = {
-  sucrase: `https://cdn.jsdelivr.net/npm/sandrun@${VERSION}/dist/runtimes/sucrase.js`,
+  sucrase: `https://cdn.jsdelivr.net/npm/@sandrun/sandrun@${VERSION}/dist/runtimes/sucrase.js`,
   micropython: "https://cdn.jsdelivr.net/npm/@micropython/micropython-webassembly-pyscript@1.29.0-6/",
   pyodide: "https://cdn.jsdelivr.net/npm/pyodide@314.0.7/",
   sqljs: "https://cdn.jsdelivr.net/npm/sql.js@1.15.2/dist/",
-  wasi: `https://cdn.jsdelivr.net/npm/sandrun@${VERSION}/dist/runtimes/wasi.js`,
-  xccjs: `https://cdn.jsdelivr.net/npm/sandrun@${VERSION}/dist/runtimes/xcc.js`,
+  wasi: `https://cdn.jsdelivr.net/npm/@sandrun/sandrun@${VERSION}/dist/runtimes/wasi.js`,
+  xccjs: `https://cdn.jsdelivr.net/npm/@sandrun/sandrun@${VERSION}/dist/runtimes/xcc.js`,
   xcc: "https://cdn.jsdelivr.net/npm/@basthon/xcc-wasm@0.1.0/",
   clang: "https://cdn.jsdelivr.net/npm/@yowasp/clang@22.0.0-git20542-10/",
-  go: "https://cdn.jsdelivr.net/npm/sandrun-go@0.1.0/",
-  java: "https://cdn.jsdelivr.net/npm/sandrun-java@0.1.0/",
-  mrubyjs: `https://cdn.jsdelivr.net/npm/sandrun@${VERSION}/dist/runtimes/mruby.js`,
+  go: "https://cdn.jsdelivr.net/npm/@sandrun/go@0.1.0/",
+  java: "https://cdn.jsdelivr.net/npm/@sandrun/java@0.1.0/",
+  mrubyjs: `https://cdn.jsdelivr.net/npm/@sandrun/sandrun@${VERSION}/dist/runtimes/mruby.js`,
   mruby: "https://cdn.jsdelivr.net/npm/@takahashim/mruby-wasm-js@0.2.0/",
   rubyjs: "https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.10.1/",
   ruby: "https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.10.1/",

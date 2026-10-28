@@ -1,4 +1,4 @@
-# sandrun-java
+# @sandrun/java
 
 This package redistributes, unmodified, the prebuilt files of
 [teavm-javac](https://github.com/konsoletyper/teavm-javac) by Alexey Andreev,
