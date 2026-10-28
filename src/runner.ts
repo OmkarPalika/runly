@@ -77,6 +77,12 @@ export interface RunResult {
 
 export interface Runner {
   run(request: RunRequest): Promise<RunResult>
+  /**
+   * Start downloading and initialising a language's runtime in the background,
+   * e.g. when a code block scrolls into view, so the first run is fast. Pass
+   * the code to pick the right Python engine.
+   */
+  preload(language: string, code?: string): void
   /** Remove the sandbox iframe and cancel pending runs. */
   dispose(): void
 }
@@ -186,6 +192,13 @@ export function createRunner(options: RunnerOptions = {}): Runner {
           "*",
         )
       })
+    },
+
+    preload(language, code = "") {
+      const lang = normalizeLanguage(language)
+      if (!lang) return
+      const engine = selectEngine(lang, code, options.python)
+      ensureFrame().then(() => frame?.contentWindow?.postMessage({ type: "preload", engine, runtimes }, "*"))
     },
 
     dispose() {

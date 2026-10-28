@@ -3,12 +3,16 @@
 // workers cannot start from a blob URL in an opaque-origin frame). This function
 // is serialized with Function.prototype.toString, so it must not reference
 // anything outside its own body.
+//
+// A worker serves one engine. It loads the engine's runtime once and keeps it
+// for later runs; each run still gets fresh program state (a new interpreter,
+// VM, database or module instance), so runs can't see each other.
 
 export function workerMain(): void {
   const scope = self as any
-  const post = (msg: unknown) => scope.postMessage(msg)
-  const write = (stream: "stdout" | "stderr") => (text: string) =>
-    post({ type: "output", stream, text })
+  let current = ""
+  const post = (msg: Record<string, unknown>) => scope.postMessage({ ...msg, id: current })
+  const write = (stream: "stdout" | "stderr") => (text: string) => post({ type: "output", stream, text })
   const stdout = write("stdout")
   const stderr = write("stderr")
 
@@ -39,7 +43,7 @@ export function workerMain(): void {
       "        raise EOFError('EOF when reading a line')",
     ].join("\n")
 
-  // User code and some runtimes (ruby.wasm) print through console.
+  // User code and some runtimes print through console.
   const line = (stream: (t: string) => void) => (...args: unknown[]) =>
     stream(args.map(format).join(" ") + "\n")
   scope.console = {
@@ -49,6 +53,24 @@ export function workerMain(): void {
     debug: line(stdout),
     warn: line(stderr),
     error: line(stderr),
+  }
+
+  // Load something once per worker. A failed load is forgotten so the next
+  // run can retry it.
+  const cache: Record<string, Promise<any>> = {}
+  const once = (key: string, load: () => Promise<any>): Promise<any> =>
+    (cache[key] ??= load().catch((err) => {
+      delete cache[key]
+      throw err
+    }))
+
+  const fetchBytes = async (url: string) => new Int8Array(await (await fetch(url)).arrayBuffer())
+
+  const decoderFor = (stream: (t: string) => void) => {
+    const decoder = new TextDecoder()
+    return (b: Uint8Array | null) => {
+      if (b) stream(decoder.decode(b, { stream: true }))
+    }
   }
 
   const runJavaScript = async (code: string, input: string) => {
@@ -72,35 +94,99 @@ export function workerMain(): void {
     args: string[],
     files: Record<string, string | Uint8Array>,
   ): Promise<number> => {
-    const shim = await import(job.runtimes.wasi)
+    const shim = await once("wasi", () => import(job.runtimes.wasi))
     const encoder = new TextEncoder()
-    const outDecoder = new TextDecoder()
-    const errDecoder = new TextDecoder()
     const dir = new Map(
       Object.entries(files).map(([name, data]) => [
         name,
         new shim.File(typeof data === "string" ? encoder.encode(data) : data),
       ]),
     )
-    const wasi = new shim.WASI(args, [], [
-      new shim.OpenFile(new shim.File(encoder.encode(job.stdin))),
-      new shim.ConsoleStdout((b: Uint8Array) => stdout(outDecoder.decode(b, { stream: true }))),
-      new shim.ConsoleStdout((b: Uint8Array) => stderr(errDecoder.decode(b, { stream: true }))),
-      new shim.PreopenDirectory("/w", dir),
-    ], { debug: false })
+    const wasi = new shim.WASI(
+      args,
+      [],
+      [
+        new shim.OpenFile(new shim.File(encoder.encode(job.stdin))),
+        new shim.ConsoleStdout(decoderFor(stdout)),
+        new shim.ConsoleStdout(decoderFor(stderr)),
+        new shim.PreopenDirectory("/w", dir),
+      ],
+      { debug: false },
+    )
     const instance = await WebAssembly.instantiate(module, { wasi_snapshot_preview1: wasi.wasiImport })
     post({ type: "ready" })
     return wasi.start(instance)
   }
 
+  // The engine table. `load` fetches and initialises the runtime (cached per
+  // worker); `run` executes one job with it.
+  const loaders: Record<string, (job: any) => Promise<any>> = {
+    typescript: (job) => once("sucrase", () => import(job.runtimes.sucrase)),
+
+    micropython: (job) =>
+      once("micropython", async () => (await import(job.runtimes.micropython + "micropython.mjs")).loadMicroPython),
+
+    pyodide: (job) =>
+      once("pyodide", async () => {
+        const { loadPyodide } = await import(job.runtimes.pyodide + "pyodide.mjs")
+        return loadPyodide({ indexURL: job.runtimes.pyodide })
+      }),
+
+    sql: (job) =>
+      once("sql", async () => {
+        const source = await (await fetch(job.runtimes.sqljs + "sql-wasm.js")).text()
+        // sql-wasm.js is a UMD script; evaluated at global scope it defines initSqlJs.
+        ;(0, eval)(source)
+        return scope.initSqlJs({ locateFile: (file: string) => job.runtimes.sqljs + file })
+      }),
+
+    c: (job) => loaders.cpp(job),
+
+    cpp: (job) =>
+      once("clang", async () => {
+        const toolchain = await import(job.runtimes.clang + "gen/bundle.js")
+        await once("wasi", () => import(job.runtimes.wasi))
+        return toolchain.runClang
+      }),
+
+    go: (job) =>
+      once("go", async () => {
+        await once("wasi", () => import(job.runtimes.wasi))
+        return WebAssembly.compileStreaming(fetch(job.runtimes.go + "yaegi.wasm"))
+      }),
+
+    java: (job) =>
+      once("java", async () => {
+        const base = job.runtimes.java
+        const { load } = await import(base + "compiler.wasm-runtime.js")
+        const [lib, sdk, classlib] = await Promise.all([
+          load(base + "compiler.wasm"),
+          fetchBytes(base + "compile-classlib-teavm.bin"),
+          fetchBytes(base + "runtime-classlib-teavm.bin"),
+        ])
+        const compiler = lib.exports.createCompiler()
+        compiler.setSdk(sdk)
+        compiler.setTeaVMClasslib(classlib)
+        // Listeners can't be removed, so one listener reports to whichever
+        // run is current (stderr posts with the current run's id).
+        compiler.onDiagnostic((d: any) => {
+          if (d.severity === "error" || d.severity === "warning") {
+            const where = d.fileName ? `${d.fileName}:${d.lineNumber}: ` : ""
+            stderr(`${where}${d.severity}: ${d.message}\n`)
+          }
+        })
+        return { load, compiler }
+      }),
+
+    ruby: (job) =>
+      once("ruby", async () => {
+        scope.importScripts(job.runtimes.rubyjs + "dist/browser.umd.js")
+        return WebAssembly.compileStreaming(fetch(job.runtimes.ruby + "dist/ruby+stdlib.wasm"))
+      }),
+  }
+
   const compileC = async (job: any, driver: "clang" | "clang++", source: string): Promise<number> => {
-    const { runClang } = await import(job.runtimes.clang + "gen/bundle.js")
-    const bytes = (stream: (t: string) => void) => {
-      const decoder = new TextDecoder()
-      return (b: Uint8Array | null) => {
-        if (b) stream(decoder.decode(b, { stream: true }))
-      }
-    }
+    const runClang = await loaders.cpp(job)
     let files: Record<string, Uint8Array>
     // The toolchain logs download progress with console.log, which would end
     // up in stdout. Silence it while compiling.
@@ -110,8 +196,8 @@ export function workerMain(): void {
       // The WASI libc++ is built without exception support.
       const flags = driver === "clang++" ? ["-fno-exceptions"] : []
       files = await runClang([driver, source, "-O1", ...flags, "-o", "main.wasm"], { [source]: job.code }, {
-        stdout: bytes(stdout),
-        stderr: bytes(stderr),
+        stdout: decoderFor(stdout),
+        stderr: decoderFor(stderr),
       })
     } catch (err: any) {
       // Compile errors have already been written to stderr.
@@ -131,22 +217,20 @@ export function workerMain(): void {
     javascript: (job) => runJavaScript(job.code, job.stdin),
 
     typescript: async (job) => {
-      const { transform } = await import(job.runtimes.sucrase)
+      const { transform } = await loaders.typescript(job)
       const js = transform(job.code, { transforms: ["typescript"], disableESTransforms: true }).code
       await runJavaScript(js, job.stdin)
     },
 
     micropython: async (job) => {
-      const base = job.runtimes.micropython
-      const { loadMicroPython } = await import(base + "micropython.mjs")
-      const outDecoder = new TextDecoder()
-      const errDecoder = new TextDecoder()
+      const loadMicroPython = await loaders.micropython(job)
+      // A new interpreter per run keeps globals from leaking between runs.
       const mp = await loadMicroPython({
-        url: base + "micropython.wasm",
+        url: job.runtimes.micropython + "micropython.wasm",
         // Unbuffered output arrives as raw bytes.
         linebuffer: false,
-        stdout: (b: Uint8Array) => stdout(outDecoder.decode(b, { stream: true })),
-        stderr: (b: Uint8Array) => stderr(errDecoder.decode(b, { stream: true })),
+        stdout: decoderFor(stdout),
+        stderr: decoderFor(stderr),
       })
       mp.runPython(pythonStdin(job.stdin))
       post({ type: "ready" })
@@ -154,25 +238,23 @@ export function workerMain(): void {
     },
 
     pyodide: async (job) => {
-      const base = job.runtimes.pyodide
-      const { loadPyodide } = await import(base + "pyodide.mjs")
-      const py = await loadPyodide({
-        indexURL: base,
-        stdout: (t: string) => stdout(t + "\n"),
-        stderr: (t: string) => stderr(t + "\n"),
-      })
+      const py = await loaders.pyodide(job)
+      py.setStdout({ batched: (t: string) => stdout(t + "\n") })
+      py.setStderr({ batched: (t: string) => stderr(t + "\n") })
       await py.loadPackagesFromImports(job.code)
-      py.runPython(pythonStdin(job.stdin))
-      post({ type: "ready" })
-      await py.runPythonAsync(job.code)
+      // Fresh globals per run; imported modules stay cached in sys.modules.
+      const globals = py.globals.get("dict")()
+      try {
+        py.runPython(pythonStdin(job.stdin), { globals })
+        post({ type: "ready" })
+        await py.runPythonAsync(job.code, { globals })
+      } finally {
+        globals.destroy()
+      }
     },
 
     sql: async (job) => {
-      const base = job.runtimes.sqljs
-      const source = await (await fetch(base + "sql-wasm.js")).text()
-      // sql-wasm.js is a UMD script; evaluated at global scope it defines initSqlJs.
-      ;(0, eval)(source)
-      const SQL = await scope.initSqlJs({ locateFile: (file: string) => base + file })
+      const SQL = await loaders.sql(job)
       const db = new SQL.Database()
       post({ type: "ready" })
       try {
@@ -188,28 +270,14 @@ export function workerMain(): void {
     cpp: (job) => compileC(job, "clang++", "main.cpp"),
 
     go: async (job) => {
-      const module = await WebAssembly.compileStreaming(fetch(job.runtimes.go + "yaegi.wasm"))
+      const module = await loaders.go(job)
       return runWasi(job, module, ["yaegi", "run", "/w/main.go"], { "main.go": job.code })
     },
 
     java: async (job) => {
-      const base = job.runtimes.java
-      const bytes = async (url: string) => new Int8Array(await (await fetch(url)).arrayBuffer())
-      const { load } = await import(base + "compiler.wasm-runtime.js")
-      const [lib, sdk, classlib] = await Promise.all([
-        load(base + "compiler.wasm"),
-        bytes(base + "compile-classlib-teavm.bin"),
-        bytes(base + "runtime-classlib-teavm.bin"),
-      ])
-      const compiler = lib.exports.createCompiler()
-      compiler.setSdk(sdk)
-      compiler.setTeaVMClasslib(classlib)
-      compiler.onDiagnostic((d: any) => {
-        if (d.severity === "error" || d.severity === "warning") {
-          const where = d.fileName ? `${d.fileName}:${d.lineNumber}: ` : ""
-          stderr(`${where}${d.severity}: ${d.message}\n`)
-        }
-      })
+      const { load, compiler } = await loaders.java(job)
+      compiler.clearSourceFiles()
+      compiler.clearOutputFiles()
       // javac requires a public class to live in a file of the same name.
       const name = /public\s+(?:(?:final|abstract)\s+)*class\s+(\w+)/.exec(job.code)?.[1] ?? "Main"
       compiler.addSourceFile(`${name}.java`, job.code)
@@ -226,11 +294,11 @@ export function workerMain(): void {
     },
 
     ruby: async (job) => {
-      scope.importScripts(job.runtimes.rubyjs + "dist/browser.umd.js")
-      const module = await WebAssembly.compileStreaming(fetch(job.runtimes.ruby + "dist/ruby+stdlib.wasm"))
+      const module = await loaders.ruby(job)
       // ruby.wasm writes raw stdout/stderr text through console.log/warn.
       scope.console.log = stdout
       scope.console.warn = stderr
+      // A new VM per run; the compiled module is reused.
       const { vm } = await scope["ruby-wasm-wasi"].DefaultRubyVM(module)
       vm.eval(`require "stringio"; $stdin = StringIO.new(${rubyString(job.stdin)})`)
       post({ type: "ready" })
@@ -239,9 +307,15 @@ export function workerMain(): void {
   }
 
   scope.onmessage = async (event: MessageEvent) => {
-    const job = event.data
+    const msg = event.data
+    if (msg.type === "preload") {
+      // Load in the background; a failure surfaces on the next real run.
+      loaders[msg.engine]?.(msg).catch(() => {})
+      return
+    }
+    current = msg.id
     try {
-      const exitCode = await engines[job.engine](job)
+      const exitCode = await engines[msg.engine](msg)
       post({ type: "done", exitCode: exitCode ?? 0 })
     } catch (err) {
       stderr(errorText(err).replace(/\n?$/, "\n"))
