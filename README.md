@@ -1,13 +1,14 @@
-# runbox
+# runly
 
-Run JavaScript, TypeScript, Python and SQL in the browser. No server, no API keys.
+Run JavaScript, TypeScript, Python, SQL, C, C++, Go, Java and Ruby in the browser.
+No server, no API keys.
 
 Code runs in a sandboxed iframe with an opaque origin, inside a Web Worker that
 is thrown away after every run. It can't see the host page, its cookies or its
 storage, and it can only make network requests to the hosts the runtimes load from.
 
 ```js
-import { createRunner } from "@omkarpalika/runbox"
+import { createRunner } from "runly"
 
 const runner = createRunner()
 
@@ -21,10 +22,11 @@ result.stdout   // "hello ada\n"
 result.exitCode // 0
 ```
 
+
 ## Install
 
 ```sh
-npm install @omkarpalika/runbox
+npm install runly
 ```
 
 It's a browser-only ES module. It has no dependencies; runtimes are downloaded
@@ -39,9 +41,30 @@ on first use and cached by the browser.
 | Python | MicroPython | ~300 KB |
 | Python with heavier imports | Pyodide (CPython) | ~10 MB, plus packages |
 | SQL | sql.js (SQLite) | ~1 MB |
+| Go | yaegi interpreter, built for WASI | ~40 MB (~8 MB compressed) |
+| Java | OpenJDK javac and TeaVM, compiled to WebAssembly (teavm-javac) | ~7 MB |
+| Ruby | ruby.wasm (CRuby 3.4 with the standard library) | ~30 MB |
+| C, C++ | Clang and LLD compiled to WebAssembly (YoWASP), targeting WASI | ~105 MB |
+
+Downloads happen once per runtime, on the first run that needs it, and are then
+served from the browser cache. A page that only shows Python never downloads
+the C toolchain.
 
 Language names are case-insensitive and accept common aliases (`js`, `ts`, `py`,
-`sqlite`, ...).
+`sqlite`, `c++`, `golang`, `rb`, ...).
+
+### Language notes
+
+- **C and C++** are compiled with `-O1` for `wasm32-wasi`. C++ is built with
+  `-fno-exceptions`, because the WASI C++ library has no exception support.
+  `main`'s return value becomes the exit code.
+- **Go** is interpreted by [yaegi](https://github.com/traefik/yaegi), not
+  compiled. It covers the language and most of the standard library; cgo,
+  `unsafe` tricks and some reflection-heavy packages won't work.
+- **Java** compiles with OpenJDK's javac, then TeaVM turns the bytecode into
+  WebAssembly. Put your code in a class with a `main` method; a `public` class
+  determines the file name. `System.in` isn't supported.
+- **Ruby** reads `stdin` through `gets` and `$stdin`.
 
 ### How Python picks an engine
 
@@ -57,7 +80,7 @@ knows about. Force one engine with `python: "micropython"` or `python: "pyodide"
 | Option | Default | |
 |---|---|---|
 | `timeoutMs` | `10000` | Limit for the code itself, measured after the runtime has loaded. |
-| `loadTimeoutMs` | `60000` | Limit for downloading and starting a runtime. |
+| `loadTimeoutMs` | `120000` | Limit for downloading and starting a runtime (and compiling, for C, C++ and Java). |
 | `maxOutputBytes` | `65536` | The run is stopped once output reaches this many characters. |
 | `python` | `"auto"` | `"auto"`, `"micropython"` or `"pyodide"`. |
 | `runtimes` | jsDelivr | Override where each runtime is loaded from (see below). |
@@ -78,6 +101,7 @@ Resolves with:
   truncated: boolean
   durationMs: number
   engine: "javascript" | "typescript" | "micropython" | "pyodide" | "sql"
+        | "c" | "cpp" | "go" | "java" | "ruby"
   error?: string       // the run could not start, or the runtime failed to load
 }
 ```
@@ -87,7 +111,8 @@ Errors in the user's code don't reject; they show up in `stderr` with
 `exitCode: 1`. An unsupported language rejects.
 
 `stdin` is passed in up front. In Python, `input()` reads it line by line; in
-JavaScript and TypeScript it's available as the `stdin` string.
+JavaScript and TypeScript it's available as the `stdin` string; C, C++, Go and
+Ruby read it from standard input as usual. Java doesn't support it.
 
 ### `runner.dispose()`
 
@@ -120,10 +145,16 @@ yourself, copy the files and point `runtimes` at them:
 ```js
 createRunner({
   runtimes: {
-    sucrase: "https://static.example.com/runbox/sucrase.js",
+    sucrase: "https://static.example.com/runly/sucrase.js",
     micropython: "https://static.example.com/micropython/",
     pyodide: "https://static.example.com/pyodide/",
     sqljs: "https://static.example.com/sql.js/",
+    wasi: "https://static.example.com/runly/wasi.js",
+    clang: "https://static.example.com/yowasp-clang/",
+    go: "https://static.example.com/runly-go/",
+    java: "https://static.example.com/runly-java/",
+    rubyjs: "https://static.example.com/ruby-wasm-wasi/",
+    ruby: "https://static.example.com/ruby-3.4-wasm-wasi/",
   },
 })
 ```
@@ -144,13 +175,13 @@ network access to exactly these hosts.
 
 ## How it compares
 
-runbox is for one job: running short snippets inside a page (docs, blog posts,
+runly is for one job: running short snippets inside a page (docs, blog posts,
 tutorials) without running a server. Other projects solve neighbouring problems
 and are often a better fit:
 
 | | Where code runs | Server needed | Languages | Best for |
 |---|---|---|---|---|
-| **runbox** | Visitor's browser | No | JS, TS, Python, SQL | Embedding runnable snippets with a small API |
+| **runly** | Visitor's browser | No | JS, TS, Python, SQL, C, C++, Go, Java, Ruby | Embedding runnable snippets with a small API |
 | [Piston](https://github.com/engineer-man/piston) | Your server (Docker) | Yes | Dozens, including compiled ones | Many languages, if you can run and secure a server |
 | [Judge0](https://github.com/judge0/judge0) | Your server or hosted API | Yes | Dozens | Online judges and grading, with limits per submission |
 | [Runno](https://github.com/taybenlor/runno) | Visitor's browser (WASI) | No | Python, Ruby, JS, C/C++, PHP, SQLite | Ready-made web components with a terminal UI |
@@ -159,11 +190,11 @@ and are often a better fit:
 | [JupyterLite](https://github.com/jupyterlite/jupyterlite) | Visitor's browser | No | Python and other kernels | Whole notebooks, not inline snippets |
 | [WebContainers](https://webcontainers.io) | Visitor's browser | No | Node.js | Running Node projects; commercial use needs a licence |
 
-What runbox does differently:
+What runly does differently:
 
-- **Smallest download that works.** Plain Python runs on MicroPython (~300 KB)
-  and only switches to Pyodide when the code needs it. JavaScript needs no
-  download at all.
+- **Smallest download that works.** Each runtime loads only when a run needs
+  it. Plain Python runs on MicroPython (~300 KB) and only switches to Pyodide
+  when the code needs it. JavaScript needs no download at all.
 - **No UI.** It returns `stdout`, `stderr` and an exit code, so it fits your
   own editor and styling.
 - **A fresh worker per run**, terminated afterwards. Memory is released, and
@@ -171,8 +202,8 @@ What runbox does differently:
 - **Output caching** built in through `snapshotKey`, so unchanged code doesn't
   need a runtime at all.
 
-If you need compiled languages such as C, Rust, Go or Java today, use Piston or
-Judge0 on a server, or Runno for C/C++ in the browser.
+Rust isn't supported: its compiler is too large to ship to a browser. For Rust,
+or for languages runly doesn't cover, use Piston or Judge0 on a server.
 
 ## Browser support
 
@@ -183,9 +214,15 @@ Tested on current Chromium, Firefox and WebKit.
 ```sh
 npm install
 npm test                          # build + unit tests
+sh runtimes/go/build.sh           # build yaegi.wasm (needs Go 1.21+)
+sh runtimes/java/fetch.sh         # download and verify teavm-javac
 npx playwright install
 npm run test:e2e                  # browser tests (needs network for the CDN runtimes)
 ```
+
+The Go and Java runtimes are published as separate packages
+([runly-go](runtimes/go) and [runly-java](runtimes/java)) so that installing
+runly doesn't pull tens of megabytes into your `node_modules`.
 
 ## License
 
