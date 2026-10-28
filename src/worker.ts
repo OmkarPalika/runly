@@ -30,6 +30,8 @@ export function workerMain(): void {
   // Python errors already carry a formatted traceback in their message.
   const errorText = (err: unknown): string => {
     if (!(err instanceof Error)) return String(err)
+    const rubyClass = (err as any).rubyClass
+    if (rubyClass) return `${rubyClass}: ${err.message}`
     return err.name === "PythonError" ? err.message : `${err.name}: ${err.message}`
   }
 
@@ -121,6 +123,8 @@ export function workerMain(): void {
   // The engine table. `load` fetches and initialises the runtime (cached per
   // worker); `run` executes one job with it.
   const loaders: Record<string, (job: any) => Promise<any>> = {
+    wasiShim: (job) => once("wasi", () => import(job.runtimes.wasi)),
+
     typescript: (job) => once("sucrase", () => import(job.runtimes.sucrase)),
 
     micropython: (job) =>
@@ -176,6 +180,22 @@ export function workerMain(): void {
           }
         })
         return { load, compiler }
+      }),
+
+    xcc: (job) =>
+      once("xcc", async () => {
+        const [lib, cc, runtime] = await Promise.all([
+          import(job.runtimes.xccjs),
+          WebAssembly.compileStreaming(fetch(job.runtimes.xcc + "build/cc.wasm")),
+          WebAssembly.compileStreaming(fetch(job.runtimes.xcc + "build/runtime.wasm")),
+        ])
+        return { lib, cc, runtime }
+      }),
+
+    mruby: (job) =>
+      once("mruby", async () => {
+        const [lib] = await Promise.all([import(job.runtimes.mrubyjs), once("wasi", () => import(job.runtimes.wasi))])
+        return lib.createVM
       }),
 
     ruby: (job) =>
@@ -265,6 +285,31 @@ export function workerMain(): void {
       }
     },
 
+    // xcc is packaged as a REPL: the program is compiled as one cell, then
+    // main() is evaluated as a second cell, whose printed result is main's
+    // return value.
+    xcc: async (job) => {
+      const { lib, cc, runtime } = await loaders.xcc(job)
+      const lines = job.stdin.split("\n")
+      const repl = await lib.CRepl.create({
+        ccModule: cc,
+        runtimeModule: runtime,
+        runtimeMap: lib.runtimeMap,
+        headers: lib.headers,
+        stdout,
+        // Diagnostics name the REPL cell; report it as the source file instead.
+        stderr: (t: string) => stderr(t.replace(/cell\[\d+\]/g, "main.c")),
+        stdin: () => (lines.length ? lines.shift() + "\n" : null),
+      })
+      const compiled = await repl.run(job.code)
+      if (compiled.status !== "ok") return 1
+      post({ type: "ready" })
+      const ran = await repl.run("main()")
+      if (ran.status !== "ok") return 1
+      const code = /\((?:int|long)\)\s*(-?\d+)/.exec(ran.result ?? "")
+      return code ? Number(code[1]) & 255 : 0
+    },
+
     c: (job) => compileC(job, "clang", "main.c"),
 
     cpp: (job) => compileC(job, "clang++", "main.cpp"),
@@ -291,6 +336,30 @@ export function workerMain(): void {
       const app = await load(compiler.getWebAssemblyOutputFile("app.wasm"))
       post({ type: "ready" })
       app.exports.main([])
+    },
+
+    mruby: async (job) => {
+      const createVM = await loaders.mruby(job)
+      const shim = await loaders.wasiShim(job)
+      // The package's own WASI layer prints through console.log and drops
+      // blank lines, so stdio goes through the shared WASI shim instead.
+      const wasi = new shim.WASI(
+        [],
+        [],
+        [
+          new shim.OpenFile(new shim.File(new TextEncoder().encode(job.stdin))),
+          new shim.ConsoleStdout(decoderFor(stdout)),
+          new shim.ConsoleStdout(decoderFor(stderr)),
+        ],
+        { debug: false },
+      )
+      const vm = await createVM({
+        wasm: job.runtimes.mruby + "mruby-js.wasm",
+        wasi: wasi.wasiImport,
+        onStart: (instance: WebAssembly.Instance) => wasi.initialize(instance),
+      })
+      post({ type: "ready" })
+      vm.eval(job.code, { filename: "main.rb" })
     },
 
     ruby: async (job) => {

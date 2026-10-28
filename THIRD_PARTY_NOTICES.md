@@ -65,6 +65,13 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
+### xcc-wasm 0.1.0 glue (`dist/runtimes/xcc.js`) and mruby-wasm-js 0.2.0 glue (`dist/runtimes/mruby.js`)
+
+Both MIT licensed:
+- https://forge.apps.education.fr/romain.casati/xcc-wasm (Romain Casati), built on
+  https://github.com/tyfkda/xcc (MIT)
+- https://github.com/takahashim/mruby-wasm-runtime, built on https://github.com/mruby/mruby (MIT)
+
 ## Loaded at run time (not redistributed in this package)
 
 | Project | Version | License | Source |
@@ -73,6 +80,8 @@ DEALINGS IN THE SOFTWARE.
 | Pyodide | 314.0.7 | MPL-2.0 | https://github.com/pyodide/pyodide |
 | sql.js | 1.15.2 | MIT | https://github.com/sql-js/sql.js |
 | YoWASP Clang (LLVM, Clang, LLD, wasi-libc, libc++) | 22.0.0-git20542-10 | ISC; LLVM parts Apache-2.0 WITH LLVM-exception | https://github.com/YoWASP/clang |
+| xcc compiler and libc (@basthon/xcc-wasm) | 0.1.0 | MIT | https://github.com/tyfkda/xcc |
+| mruby (@takahashim/mruby-wasm-js) | 0.2.0 | MIT | https://github.com/mruby/mruby |
 | yaegi (via runly-go) | 0.16.1 | Apache-2.0 | https://github.com/traefik/yaegi |
 | teavm-javac (via runly-java) | prebuilt from teavm.org | Apache-2.0; bundled OpenJDK parts GPL-2.0 WITH Classpath-exception-2.0 | https://github.com/konsoletyper/teavm-javac |
 | ruby.wasm | 2.10.1 (CRuby 3.4) | MIT; CRuby under the Ruby License / BSD-2-Clause | https://github.com/ruby/ruby.wasm |

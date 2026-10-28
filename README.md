@@ -43,8 +43,10 @@ on first use and cached by the browser.
 | SQL | sql.js (SQLite) | ~1 MB |
 | Go | yaegi interpreter, built for WASI | ~40 MB (~8 MB compressed) |
 | Java | OpenJDK javac and TeaVM, compiled to WebAssembly (teavm-javac) | ~7 MB |
-| Ruby | ruby.wasm (CRuby 3.4 with the standard library) | ~30 MB |
-| C, C++ | Clang and LLD compiled to WebAssembly (YoWASP), targeting WASI | ~105 MB |
+| Ruby | mruby | ~1 MB |
+| Ruby that calls `require` | ruby.wasm (CRuby 3.4 with the standard library) | ~30 MB |
+| C | xcc | ~0.4 MB |
+| C with `c: "clang"`, and C++ | Clang and LLD compiled to WebAssembly (YoWASP), targeting WASI | ~105 MB |
 
 Downloads happen once per runtime, on the first run that needs it, and are then
 served from the browser cache. A page that only shows Python never downloads
@@ -55,16 +57,23 @@ Language names are case-insensitive and accept common aliases (`js`, `ts`, `py`,
 
 ### Language notes
 
-- **C and C++** are compiled with `-O1` for `wasm32-wasi`. C++ is built with
-  `-fno-exceptions`, because the WASI C++ library has no exception support.
-  `main`'s return value becomes the exit code.
+- **C** uses [xcc](https://github.com/tyfkda/xcc), a small C compiler that
+  runs in the browser. It covers C99/C11 and the common parts of the standard
+  library, and checks array bounds and `NULL` dereferences at run time. For
+  full GCC/Clang compatibility pass `c: "clang"`. `main`'s return value
+  becomes the exit code.
+- **C++** is compiled with Clang (`-O1`, `wasm32-wasi`, `-fno-exceptions`,
+  because the WASI C++ library has no exception support).
+- In both, `long` is 32 bits (WebAssembly is a 32-bit target).
 - **Go** is interpreted by [yaegi](https://github.com/traefik/yaegi), not
   compiled. It covers the language and most of the standard library; cgo,
   `unsafe` tricks and some reflection-heavy packages won't work.
 - **Java** compiles with OpenJDK's javac, then TeaVM turns the bytecode into
   WebAssembly. Put your code in a class with a `main` method; a `public` class
   determines the file name. `System.in` isn't supported.
-- **Ruby** reads `stdin` through `gets` and `$stdin`.
+- **Ruby** runs on [mruby](https://mruby.org), a compact Ruby, unless the
+  code calls `require`; then it runs on CRuby 3.4. Force one with
+  `ruby: "mruby"` or `ruby: "cruby"`. Both read `stdin` through `gets`.
 
 ### How Python picks an engine
 
@@ -83,6 +92,8 @@ knows about. Force one engine with `python: "micropython"` or `python: "pyodide"
 | `loadTimeoutMs` | `120000` | Limit for downloading and starting a runtime (and compiling, for C, C++ and Java). |
 | `maxOutputBytes` | `65536` | The run is stopped once output reaches this many characters. |
 | `python` | `"auto"` | `"auto"`, `"micropython"` or `"pyodide"`. |
+| `c` | `"xcc"` | `"xcc"` or `"clang"`. |
+| `ruby` | `"auto"` | `"auto"`, `"mruby"` or `"cruby"`. |
 | `runtimes` | jsDelivr | Override where each runtime is loaded from (see below). |
 | `container` | `document.body` | Where the hidden sandbox iframe is attached. |
 
@@ -101,7 +112,7 @@ Resolves with:
   truncated: boolean
   durationMs: number
   engine: "javascript" | "typescript" | "micropython" | "pyodide" | "sql"
-        | "c" | "cpp" | "go" | "java" | "ruby"
+        | "xcc" | "c" | "cpp" | "go" | "java" | "mruby" | "ruby"
   error?: string       // the run could not start, or the runtime failed to load
 }
 ```
@@ -135,7 +146,7 @@ Removes the iframe and resolves any pending runs with `error: "Runner disposed"`
 
 - `normalizeLanguage(name)` returns a supported language or `null`. Use it to
   decide whether to show a Run button.
-- `selectEngine(language, code, python?)` returns the engine a run would use.
+- `selectEngine(language, code, { python, c, ruby }?)` returns the engine a run would use.
 - `snapshotKey(language, code, stdin?)` returns a SHA-256 key for caching output.
 
 ## Caching output
@@ -163,6 +174,10 @@ createRunner({
     pyodide: "https://static.example.com/pyodide/",
     sqljs: "https://static.example.com/sql.js/",
     wasi: "https://static.example.com/runly/wasi.js",
+    xccjs: "https://static.example.com/runly/xcc.js",
+    xcc: "https://static.example.com/xcc-wasm/",
+    mrubyjs: "https://static.example.com/runly/mruby.js",
+    mruby: "https://static.example.com/mruby-wasm-js/",
     clang: "https://static.example.com/yowasp-clang/",
     go: "https://static.example.com/runly-go/",
     java: "https://static.example.com/runly-java/",
@@ -228,8 +243,9 @@ or for languages runly doesn't cover, use Piston or Judge0 on a server.
 
 On Chromium, runly's warm runs (second run on a page) were faster than
 Runno's in every language both support: for example 11 ms against 217 ms for
-JavaScript, 4 ms for SQL, 101 ms against 1.76 s for C, and 280 ms against
-694 ms for Ruby. Cold C++ runs were slower than Runno's. Full table, method and
+JavaScript, 4 ms for SQL, 12 ms against 1.76 s for C, and 412 ms against
+901 ms for Ruby. First runs were faster too (C: 147 ms against 3.5 s), except
+C++, where Runno's smaller Clang wins. Full table, method and
 caveats: [bench/RESULTS.md](bench/RESULTS.md).
 
 ## Browser support

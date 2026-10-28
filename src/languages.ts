@@ -2,17 +2,22 @@ export const LANGUAGES = ["javascript", "typescript", "python", "sql", "c", "cpp
 
 export type Language = (typeof LANGUAGES)[number]
 
-/** Engine that actually executes a run. Python has a small and a full one. */
+/**
+ * Engine that actually executes a run. Python, C and Ruby each have a small
+ * engine and a full one.
+ */
 export type Engine =
   | "javascript"
   | "typescript"
   | "micropython"
   | "pyodide"
   | "sql"
+  | "xcc"
   | "c"
   | "cpp"
   | "go"
   | "java"
+  | "mruby"
   | "ruby"
 
 const ALIASES: Record<string, Language> = {
@@ -85,11 +90,36 @@ export function pythonImports(code: string): string[] {
 }
 
 export type PythonMode = "auto" | "micropython" | "pyodide"
+export type CMode = "xcc" | "clang"
+export type RubyMode = "auto" | "mruby" | "cruby"
 
-/** Pick the engine for a language. Python uses MicroPython unless the code needs more. */
-export function selectEngine(language: Language, code: string, python: PythonMode = "auto"): Engine {
-  if (language !== "python") return language
-  if (python !== "auto") return python
-  const needsFull = pythonImports(code).some((m) => !MICROPYTHON_MODULES.has(m))
-  return needsFull ? "pyodide" : "micropython"
+export interface EngineOptions {
+  /** "auto" (default) uses MicroPython unless the code imports more. */
+  python?: PythonMode
+  /** "xcc" (default) is a small C compiler; "clang" is full Clang. */
+  c?: CMode
+  /** "auto" (default) uses mruby unless the code calls `require`. */
+  ruby?: RubyMode
+}
+
+/** Pick the engine for a language, preferring the smallest one that can run the code. */
+export function selectEngine(language: Language, code: string, options: EngineOptions = {}): Engine {
+  switch (language) {
+    case "python": {
+      const mode = options.python ?? "auto"
+      if (mode !== "auto") return mode
+      return pythonImports(code).some((m) => !MICROPYTHON_MODULES.has(m)) ? "pyodide" : "micropython"
+    }
+    case "c":
+      return options.c === "clang" ? "c" : "xcc"
+    case "ruby": {
+      const mode = options.ruby ?? "auto"
+      if (mode === "mruby") return "mruby"
+      if (mode === "cruby") return "ruby"
+      // mruby has no require; anything that loads a library needs CRuby.
+      return /^\s*require(_relative)?\b/m.test(code) ? "ruby" : "mruby"
+    }
+    default:
+      return language
+  }
 }

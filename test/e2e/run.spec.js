@@ -126,7 +126,8 @@ test("c compiles and reads stdin", async ({ page }) => {
 test("c compile errors are reported", async ({ page }) => {
   const res = await run(page, { language: "c", code: "int main(void) { return x; }" })
   expect(res.exitCode).not.toBe(0)
-  expect(res.stderr).toContain("undeclared identifier")
+  expect(res.stderr).toContain("undeclared")
+  expect(res.stderr).toContain("main.c")
 })
 
 test("c exit codes are returned", async ({ page }) => {
@@ -236,4 +237,38 @@ test("preload makes the first run faster", async ({ page }) => {
   const res = await run(page, { language: "sql", code: "select 1 as one;" })
   expect(res.stdout).toContain("one")
   expect(res.durationMs).toBeLessThan(500)
+})
+
+test("c uses xcc by default", async ({ page }) => {
+  const res = await run(page, {
+    language: "c",
+    code: '#include <stdio.h>\nint main(void) { char name[32]; scanf("%31s", name); printf("hi %s\\n", name); return 0; }',
+    stdin: "xcc",
+  })
+  expect(res.engine).toBe("xcc")
+  expect(res.stderr).toBe("")
+  expect(res.stdout).toBe("hi xcc\n")
+})
+
+test("c can use clang instead", async ({ page }) => {
+  const res = await page.evaluate(() =>
+    window.runly
+      .createRunner({ c: "clang", runtimes: { wasi: location.origin + "/dist/runtimes/wasi.js" } })
+      .run({ language: "c", code: '#include <stdio.h>\nint main(void) { puts("clang"); return 0; }' }),
+  )
+  expect(res.engine).toBe("c")
+  expect(res.stdout).toBe("clang\n")
+})
+
+test("ruby uses mruby for plain scripts", async ({ page }) => {
+  const res = await run(page, { language: "ruby", code: 'puts "a"\nputs ""\nputs [3, 4].map { |x| x * 2 }.inspect' })
+  expect(res.engine).toBe("mruby")
+  expect(res.stderr).toBe("")
+  expect(res.stdout).toBe("a\n\n[6, 8]\n")
+})
+
+test("ruby with require uses CRuby", async ({ page }) => {
+  const res = await run(page, { language: "ruby", code: "require 'set'\nputs Set.new([1, 1, 2]).size" })
+  expect(res.engine).toBe("ruby")
+  expect(res.stdout).toBe("2\n")
 })

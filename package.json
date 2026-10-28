@@ -40,11 +40,14 @@
     "test": "npm run build && node --test test/unit/*.test.js",
     "test:e2e": "npm run build && playwright test",
     "prepublishOnly": "npm test",
-    "build:runtimes": "esbuild node_modules/sucrase/dist/esm/index.js --bundle --format=esm --minify --platform=browser --legal-comments=eof --outfile=dist/runtimes/sucrase.js && esbuild node_modules/@bjorn3/browser_wasi_shim/dist/index.js --bundle --format=esm --minify --platform=browser --legal-comments=eof --outfile=dist/runtimes/wasi.js"
+    "build:runtimes": "esbuild node_modules/sucrase/dist/esm/index.js --bundle --format=esm --minify --platform=browser --legal-comments=eof --outfile=dist/runtimes/sucrase.js && esbuild node_modules/@bjorn3/browser_wasi_shim/dist/index.js --bundle --format=esm --minify --platform=browser --legal-comments=eof --outfile=dist/runtimes/wasi.js && esbuild node_modules/@basthon/xcc-wasm/js/index.mjs --bundle --format=esm --minify --platform=browser --legal-comments=eof --outfile=dist/runtimes/xcc.js && esbuild node_modules/@takahashim/mruby-wasm-js/index.js --bundle --format=esm --minify --platform=browser --legal-comments=eof --outfile=dist/runtimes/mruby.js"
   },
   "devDependencies": {
+    "@basthon/xcc-wasm": "^0.1.0",
     "@bjorn3/browser_wasi_shim": "^0.4.2",
     "@playwright/test": "1.64.1",
+    "@takahashim/mruby-wasm-js": "^0.2.0",
+    "binaryen": "^132.0.0",
     "esbuild": "^0.28.2",
     "sucrase": "^3.35.1",
     "typescript": "5.9.3"

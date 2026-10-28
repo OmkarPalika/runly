@@ -43,8 +43,23 @@ test("selectEngine falls back to Pyodide for heavier imports", () => {
 })
 
 test("selectEngine honours an explicit Python mode", () => {
-  assert.equal(selectEngine("python", "import numpy", "micropython"), "micropython")
-  assert.equal(selectEngine("python", "print(1)", "pyodide"), "pyodide")
+  assert.equal(selectEngine("python", "import numpy", { python: "micropython" }), "micropython")
+  assert.equal(selectEngine("python", "print(1)", { python: "pyodide" }), "pyodide")
+})
+
+test("selectEngine uses xcc for C unless clang is requested", () => {
+  assert.equal(selectEngine("c", "int main(void) { return 0; }"), "xcc")
+  assert.equal(selectEngine("c", "int main(void) { return 0; }", { c: "clang" }), "c")
+  assert.equal(selectEngine("cpp", "int main() {}"), "cpp")
+})
+
+test("selectEngine uses mruby unless the code requires a library", () => {
+  assert.equal(selectEngine("ruby", "puts 1"), "mruby")
+  assert.equal(selectEngine("ruby", "require 'set'\nputs Set.new"), "ruby")
+  assert.equal(selectEngine("ruby", "x = 1\n  require_relative 'a'"), "ruby")
+  assert.equal(selectEngine("ruby", "puts 'require me'"), "mruby")
+  assert.equal(selectEngine("ruby", "puts 1", { ruby: "cruby" }), "ruby")
+  assert.equal(selectEngine("ruby", "require 'set'", { ruby: "mruby" }), "mruby")
 })
 
 test("selectEngine passes other languages through", () => {

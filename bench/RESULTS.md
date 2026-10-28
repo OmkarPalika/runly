@@ -21,11 +21,13 @@ under ~20% as noise. Reproduce with `node bench/server.js & node bench/run.mjs`.
 | Python | Runno (CPython) | 3.15 s | 2.59 s | 1.92 s | yes |
 | SQL | runly (sql.js) | 279 ms | 4 ms | 71 ms | yes |
 | SQL | Runno (sqlite) | did not finish in 180 s | | | no |
-| C | runly (Clang) | 3.07 s | 101 ms | 2.33 s | yes |
+| C | runly (xcc, default) | 147 ms | 12 ms | 55 ms | yes |
+| C | runly (Clang, `c: "clang"`) | 3.07 s | 101 ms | 2.33 s | yes |
 | C | Runno (Clang) | 3.34 s | 1.76 s | 1.88 s | yes |
 | C++ | runly (Clang) | 6.53 s | 2.95 s | 6.55 s | yes |
 | C++ | Runno (Clang) | 5.41 s | 3.65 s | 4.45 s | yes |
-| Ruby | runly (ruby.wasm) | 1.50 s | 280 ms | 1.27 s | yes |
+| Ruby | runly (mruby, default) | 648 ms | 412 ms | 644 ms | yes |
+| Ruby | runly (CRuby, with `require`) | 1.50 s | 280 ms | 1.27 s | yes |
 | Ruby | Runno | 2.90 s | 694 ms | 790 ms | yes |
 | TypeScript | runly | 63 ms | 34 ms | 43 ms | yes |
 | Go | runly (yaegi) | 1.16 s | 418 ms | 1.01 s | yes |
@@ -35,9 +37,14 @@ under ~20% as noise. Reproduce with `node bench/server.js & node bench/run.mjs`.
 
 - runly is faster on warm runs in every shared language, because it keeps each
   runtime loaded between runs.
-- runly is faster on cold runs for JavaScript, Python, SQL and Ruby. Runno is
-  faster for C++ cold runs and after reload: its Clang build is smaller than
-  YoWASP's, and runly reloads the toolchain on every new page.
+- runly is faster on cold runs for JavaScript, Python, SQL, C and Ruby. For C,
+  the default xcc compiler (~0.4 MB) makes the first run about 20× faster than
+  with Clang. Runno is faster for C++ cold runs and after reload: its Clang
+  build is smaller than YoWASP's, and runly reloads the toolchain on every new
+  page.
+- mruby starts faster than CRuby but runs this CPU-bound loop more slowly
+  (412 ms against 280 ms warm), so the default trades peak speed for a 1 MB
+  download.
 - Python here measures a CPU-bound loop. MicroPython is a smaller, slower
   interpreter than CPython; for heavier numeric code runly switches to
   Pyodide (CPython), which this table doesn't exercise.

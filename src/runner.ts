@@ -1,5 +1,5 @@
 import { frameMain } from "./frame.js"
-import { normalizeLanguage, selectEngine, type Engine, type PythonMode } from "./languages.js"
+import { normalizeLanguage, selectEngine, type CMode, type Engine, type PythonMode, type RubyMode } from "./languages.js"
 import { VERSION } from "./version.js"
 import { workerMain } from "./worker.js"
 
@@ -15,12 +15,20 @@ export interface RuntimeUrls {
   sqljs: string
   /** ES module URL of browser_wasi_shim (a single-file build ships in this package). Used for C, C++ and Go. */
   wasi: string
+  /** ES module URL of the xcc C compiler glue (a single-file build ships in this package). */
+  xccjs: string
+  /** Root of the @basthon/xcc-wasm package (build/cc.wasm, build/runtime.wasm). */
+  xcc: string
   /** Root of the @yowasp/clang package (gen/bundle.js and its assets). */
   clang: string
   /** Directory containing yaegi.wasm (the runly-go package). */
   go: string
   /** Directory containing the TeaVM javac build (the runly-java package). */
   java: string
+  /** ES module URL of the mruby glue (a single-file build ships in this package). */
+  mrubyjs: string
+  /** Root of the @takahashim/mruby-wasm-js package (mruby-js.wasm). */
+  mruby: string
   /** Root of the @ruby/wasm-wasi package (dist/browser.umd.js). */
   rubyjs: string
   /** Root of a Ruby build package (dist/ruby+stdlib.wasm). */
@@ -33,9 +41,13 @@ export const DEFAULT_RUNTIMES: RuntimeUrls = {
   pyodide: "https://cdn.jsdelivr.net/npm/pyodide@314.0.7/",
   sqljs: "https://cdn.jsdelivr.net/npm/sql.js@1.15.2/dist/",
   wasi: `https://cdn.jsdelivr.net/npm/runly@${VERSION}/dist/runtimes/wasi.js`,
+  xccjs: `https://cdn.jsdelivr.net/npm/runly@${VERSION}/dist/runtimes/xcc.js`,
+  xcc: "https://cdn.jsdelivr.net/npm/@basthon/xcc-wasm@0.1.0/",
   clang: "https://cdn.jsdelivr.net/npm/@yowasp/clang@22.0.0-git20542-10/",
   go: "https://cdn.jsdelivr.net/npm/runly-go@0.1.0/",
   java: "https://cdn.jsdelivr.net/npm/runly-java@0.1.0/",
+  mrubyjs: `https://cdn.jsdelivr.net/npm/runly@${VERSION}/dist/runtimes/mruby.js`,
+  mruby: "https://cdn.jsdelivr.net/npm/@takahashim/mruby-wasm-js@0.2.0/",
   rubyjs: "https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.10.1/",
   ruby: "https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.10.1/",
 }
@@ -49,6 +61,10 @@ export interface RunnerOptions {
   maxOutputBytes?: number
   /** Which Python engine to use. "auto" picks MicroPython unless the code imports more. */
   python?: PythonMode
+  /** Which C compiler to use. "xcc" (default, ~0.4 MB) or "clang" (~105 MB, closer to GCC/Clang behaviour). */
+  c?: CMode
+  /** Which Ruby to use. "auto" picks mruby (~1 MB) unless the code calls `require`; "cruby" is full Ruby 3.4. */
+  ruby?: RubyMode
   /** Override where runtimes are loaded from. */
   runtimes?: Partial<RuntimeUrls>
   /** Element the hidden sandbox iframe is attached to. Default document.body. */
@@ -172,7 +188,7 @@ export function createRunner(options: RunnerOptions = {}): Runner {
     async run(request) {
       const language = normalizeLanguage(request.language)
       if (!language) throw new Error(`Unsupported language: ${request.language}`)
-      const engine = selectEngine(language, request.code, options.python)
+      const engine = selectEngine(language, request.code, options)
       await ensureFrame()
       const id = String(nextId++)
       return new Promise<RunResult>((resolve) => {
@@ -197,7 +213,7 @@ export function createRunner(options: RunnerOptions = {}): Runner {
     preload(language, code = "") {
       const lang = normalizeLanguage(language)
       if (!lang) return
-      const engine = selectEngine(lang, code, options.python)
+      const engine = selectEngine(lang, code, options)
       ensureFrame().then(() => frame?.contentWindow?.postMessage({ type: "preload", engine, runtimes }, "*"))
     },
 
