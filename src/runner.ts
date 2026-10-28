@@ -13,19 +13,37 @@ export interface RuntimeUrls {
   pyodide: string
   /** Directory containing sql-wasm.js and sql-wasm.wasm. */
   sqljs: string
+  /** ES module URL of browser_wasi_shim (a single-file build ships in this package). Used for C, C++ and Go. */
+  wasi: string
+  /** Root of the @yowasp/clang package (gen/bundle.js and its assets). */
+  clang: string
+  /** Directory containing yaegi.wasm (the runly-go package). */
+  go: string
+  /** Directory containing the TeaVM javac build (the runly-java package). */
+  java: string
+  /** Root of the @ruby/wasm-wasi package (dist/browser.umd.js). */
+  rubyjs: string
+  /** Root of a Ruby build package (dist/ruby+stdlib.wasm). */
+  ruby: string
 }
 
 export const DEFAULT_RUNTIMES: RuntimeUrls = {
-  sucrase: `https://cdn.jsdelivr.net/npm/@omkarpalika/runbox@${VERSION}/dist/runtimes/sucrase.js`,
+  sucrase: `https://cdn.jsdelivr.net/npm/runly@${VERSION}/dist/runtimes/sucrase.js`,
   micropython: "https://cdn.jsdelivr.net/npm/@micropython/micropython-webassembly-pyscript@1.29.0-6/",
   pyodide: "https://cdn.jsdelivr.net/npm/pyodide@314.0.7/",
   sqljs: "https://cdn.jsdelivr.net/npm/sql.js@1.15.2/dist/",
+  wasi: `https://cdn.jsdelivr.net/npm/runly@${VERSION}/dist/runtimes/wasi.js`,
+  clang: "https://cdn.jsdelivr.net/npm/@yowasp/clang@22.0.0-git20542-10/",
+  go: "https://cdn.jsdelivr.net/npm/runly-go@0.1.0/",
+  java: "https://cdn.jsdelivr.net/npm/runly-java@0.1.0/",
+  rubyjs: "https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.10.1/",
+  ruby: "https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.10.1/",
 }
 
 export interface RunnerOptions {
   /** Max time for the code itself, after the runtime has loaded. Default 10 000 ms. */
   timeoutMs?: number
-  /** Max time to download and start a runtime. Default 60 000 ms. */
+  /** Max time to download and start a runtime, including compilation. Default 120 000 ms. */
   loadTimeoutMs?: number
   /** Output beyond this many characters is dropped and the run stopped. Default 65 536. */
   maxOutputBytes?: number
@@ -162,7 +180,7 @@ export function createRunner(options: RunnerOptions = {}): Runner {
             stdin: request.stdin ?? "",
             runtimes,
             timeoutMs: options.timeoutMs ?? 10_000,
-            loadTimeoutMs: options.loadTimeoutMs ?? 60_000,
+            loadTimeoutMs: options.loadTimeoutMs ?? 120_000,
             maxOutputBytes: options.maxOutputBytes ?? 65_536,
           },
           "*",
