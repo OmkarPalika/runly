@@ -1,0 +1,23 @@
+{
+  "name": "runly-java",
+  "version": "0.1.0",
+  "description": "teavm-javac (OpenJDK javac plus TeaVM, compiled to WebAssembly), used by runly to run Java in the browser.",
+  "license": "Apache-2.0 AND GPL-2.0-only WITH Classpath-exception-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OmkarPalika/runly.git",
+    "directory": "runtimes/java"
+  },
+  "files": [
+    "compiler.wasm",
+    "compiler.wasm-runtime.js",
+    "compile-classlib-teavm.bin",
+    "runtime-classlib-teavm.bin",
+    "LICENSE",
+    "NOTICE.md"
+  ],
+  "scripts": {
+    "fetch": "sh fetch.sh",
+    "prepublishOnly": "sh fetch.sh"
+  }
+}
