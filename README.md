@@ -114,6 +114,19 @@ Errors in the user's code don't reject; they show up in `stderr` with
 JavaScript and TypeScript it's available as the `stdin` string; C, C++, Go and
 Ruby read it from standard input as usual. Java doesn't support it.
 
+### `runner.preload(language, code?)`
+
+Starts downloading and initialising a runtime in the background, so the first
+Run is fast. Call it when a code block scrolls into view:
+
+```js
+new IntersectionObserver((entries) => {
+  for (const e of entries) if (e.isIntersecting) runner.preload(e.target.dataset.lang)
+}).observe(codeBlock)
+```
+
+Pass the code for Python so the right engine (MicroPython or Pyodide) is warmed.
+
 ### `runner.dispose()`
 
 Removes the iframe and resolves any pending runs with `error: "Runner disposed"`.
@@ -168,8 +181,12 @@ network access to exactly these hosts.
 - The iframe uses `sandbox="allow-scripts"` without `allow-same-origin`, so the
   code has no access to the host's DOM, cookies, `localStorage` or IndexedDB.
 - Network access is limited by CSP to the runtime hosts.
-- Each run starts a fresh worker and terminates it afterwards. Timeouts and the
-  output cap stop runaway code.
+- Each language runs in its own worker. The runtime stays loaded between runs,
+  but every run gets fresh program state (a new interpreter, VM, database or
+  module instance). Runs for the same language are queued.
+- A run that times out or hits the output cap has its worker terminated; the
+  next run starts a new one. JavaScript and TypeScript use a new worker for
+  every run, since they share the worker's global scope.
 - The code still runs on the visitor's machine and can use their CPU until the
   timeout fires. Keep `timeoutMs` reasonable.
 
@@ -197,8 +214,10 @@ What runly does differently:
   when the code needs it. JavaScript needs no download at all.
 - **No UI.** It returns `stdout`, `stderr` and an exit code, so it fits your
   own editor and styling.
-- **A fresh worker per run**, terminated afterwards. Memory is released, and
-  timeouts actually stop the code.
+- **Warm runtimes, fresh state.** A language's runtime loads once per page;
+  every run still starts from a clean interpreter. Timeouts terminate the
+  worker, so runaway code is actually stopped.
+- **`preload()`** warms a runtime before the reader presses Run.
 - **Output caching** built in through `snapshotKey`, so unchanged code doesn't
   need a runtime at all.
 
