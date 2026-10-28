@@ -46,7 +46,7 @@ on first use and cached by the browser.
 | Ruby | mruby | ~1 MB |
 | Ruby that calls `require` | ruby.wasm (CRuby 3.4 with the standard library) | ~30 MB |
 | C | xcc | ~0.4 MB |
-| C with `c: "clang"`, and C++ | Clang and LLD compiled to WebAssembly (YoWASP), targeting WASI | ~105 MB |
+| C with `c: "clang"`, and C++ | Clang 22 and LLD compiled to WebAssembly, targeting WASI ([@browserrun/clang](runtimes/clang)) | ~14 MB |
 
 Downloads happen once per runtime, on the first run that needs it, and are then
 served from the browser cache. A page that only shows Python never downloads
@@ -62,7 +62,7 @@ Language names are case-insensitive and accept common aliases (`js`, `ts`, `py`,
   library, and checks array bounds and `NULL` dereferences at run time. For
   full GCC/Clang compatibility pass `c: "clang"`. `main`'s return value
   becomes the exit code.
-- **C++** is compiled with Clang (`-O1`, `wasm32-wasi`, `-fno-exceptions`,
+- **C++** is compiled with Clang as C++20 (`-O1`, `wasm32-wasi`, `-fno-exceptions`,
   because the WASI C++ library has no exception support).
 - In both, `long` is 32 bits (WebAssembly is a 32-bit target).
 - **Go** is interpreted by [yaegi](https://github.com/traefik/yaegi), not
@@ -178,7 +178,7 @@ createRunner({
     xcc: "https://static.example.com/xcc-wasm/",
     mrubyjs: "https://static.example.com/sandrun/mruby.js",
     mruby: "https://static.example.com/mruby-wasm-js/",
-    clang: "https://static.example.com/yowasp-clang/",
+    clang: "https://static.example.com/@browserrun/clang/",
     go: "https://static.example.com/@browserrun/go/",
     java: "https://static.example.com/@browserrun/java/",
     rubyjs: "https://static.example.com/ruby-wasm-wasi/",
@@ -254,15 +254,17 @@ Each program sums the integers below 1,000,000 and prints the result.
 | Python | **1.25 s** | **1.03 s** | **1.03 s** | 3.15 s | 2.59 s | 1.92 s |
 | SQL | **279 ms** | **4 ms** | **71 ms** | did not finish | | |
 | C | **147 ms** | **12 ms** | **55 ms** | 3.50 s | 1.82 s | 1.92 s |
-| C++ | 6.53 s | **2.95 s** | 6.55 s | **5.41 s** | 3.65 s | **4.45 s** |
+| C++ | 6.78 s | 4.19 s | 7.26 s | **5.09 s** | **4.10 s** | **4.19 s** |
 | Ruby | **648 ms** | **412 ms** | **644 ms** | 3.48 s | 901 ms | 848 ms |
 | TypeScript | 63 ms | 34 ms | 43 ms | not supported | | |
 | Go | 1.16 s | 418 ms | 1.01 s | not supported | | |
 | Java | 1.43 s | 666 ms | 1.49 s | not supported | | |
 
 Single measurements on one machine and connection; treat gaps under ~20% as
-noise. Runno is faster for C++ on a fresh page because its Clang build is
-smaller. Method, caveats and how to reproduce:
+noise. For C++, sandrun downloads slightly less than Runno (13.7 MB against
+14.2 MB) and supports C++20, but Runno starts faster: its Clang 8 build takes
+less time to compile in the browser than Clang 22. Method, caveats and how to
+reproduce:
 [bench/RESULTS.md](bench/RESULTS.md).
 
 ## Browser support

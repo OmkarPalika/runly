@@ -214,7 +214,7 @@ export function workerMain(): void {
     scope.console.log = () => {}
     try {
       // The WASI libc++ is built without exception support.
-      const flags = driver === "clang++" ? ["-fno-exceptions"] : []
+      const flags = driver === "clang++" ? ["-std=c++20", "-fno-exceptions"] : []
       files = await runClang([driver, source, "-O1", ...flags, "-o", "main.wasm"], { [source]: job.code }, {
         stdout: decoderFor(stdout),
         stderr: decoderFor(stderr),

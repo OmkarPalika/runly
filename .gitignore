@@ -7,3 +7,4 @@ runtimes/go/yaegi.wasm
 runtimes/java/*.wasm
 runtimes/java/*.bin
 runtimes/java/compiler.wasm-runtime.js
+runtimes/clang/gen/

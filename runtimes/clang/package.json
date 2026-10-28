@@ -1,0 +1,14 @@
+{
+  "name": "@browserrun/clang",
+  "version": "0.1.0",
+  "description": "A size-trimmed Clang/LLD toolchain built for WASI, used by sandrun to compile C and C++ in the browser.",
+  "license": "Apache-2.0 WITH LLVM-exception",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OmkarPalika/sandrun.git",
+    "directory": "runtimes/clang"
+  },
+  "type": "module",
+  "exports": "./gen/bundle.js",
+  "files": ["gen/", "licenses/", "NOTICE.md"]
+}

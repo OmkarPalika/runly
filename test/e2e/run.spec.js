@@ -144,6 +144,15 @@ test("cpp runs with the standard library", async ({ page }) => {
   expect(res.stdout).toBe("6\n")
 })
 
+test("cpp supports C++20", async ({ page }) => {
+  const res = await run(page, {
+    language: "c++",
+    code: '#include <cstdio>\n#include <concepts>\n#include <ranges>\n#include <vector>\ntemplate <std::integral T> T twice(T x) { return x * 2; }\nint main() { std::vector<int> v{1, 2, 3, 4}; int s = 0; for (int x : v | std::views::filter([](int n) { return n % 2 == 0; })) s += twice(x); std::printf("%d\\n", s); }',
+  })
+  expect(res.stderr).toBe("")
+  expect(res.stdout).toBe("12\n")
+})
+
 test("go runs with stdin", async ({ page }) => {
   const res = await run(page, {
     language: "go",
@@ -253,7 +262,7 @@ test("c uses xcc by default", async ({ page }) => {
 test("c can use clang instead", async ({ page }) => {
   const res = await page.evaluate(() =>
     window.sandrun
-      .createRunner({ c: "clang", runtimes: { wasi: location.origin + "/dist/runtimes/wasi.js" } })
+      .createRunner({ c: "clang", runtimes: { wasi: location.origin + "/dist/runtimes/wasi.js", clang: location.origin + "/runtimes/clang/" } })
       .run({ language: "c", code: '#include <stdio.h>\nint main(void) { puts("clang"); return 0; }' }),
   )
   expect(res.engine).toBe("c")

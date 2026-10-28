@@ -24,8 +24,8 @@ under ~20% as noise. Reproduce with `node bench/server.js & node bench/run.mjs`.
 | C | sandrun (xcc, default) | 147 ms | 12 ms | 55 ms | yes |
 | C | sandrun (Clang, `c: "clang"`) | 3.07 s | 101 ms | 2.33 s | yes |
 | C | Runno (Clang) | 3.34 s | 1.76 s | 1.88 s | yes |
-| C++ | sandrun (Clang) | 6.53 s | 2.95 s | 6.55 s | yes |
-| C++ | Runno (Clang) | 5.41 s | 3.65 s | 4.45 s | yes |
+| C++ | sandrun (Clang) | 6.78 s | 4.19 s | 7.26 s | yes |
+| C++ | Runno (Clang) | 5.09 s | 4.10 s | 4.19 s | yes |
 | Ruby | sandrun (mruby, default) | 648 ms | 412 ms | 644 ms | yes |
 | Ruby | sandrun (CRuby, with `require`) | 1.50 s | 280 ms | 1.27 s | yes |
 | Ruby | Runno | 2.90 s | 694 ms | 790 ms | yes |
@@ -39,9 +39,9 @@ under ~20% as noise. Reproduce with `node bench/server.js & node bench/run.mjs`.
   runtime loaded between runs.
 - sandrun is faster on cold runs for JavaScript, Python, SQL, C and Ruby. For C,
   the default xcc compiler (~0.4 MB) makes the first run about 20× faster than
-  with Clang. Runno is faster for C++ cold runs and after reload: its Clang
-  build is smaller than YoWASP's, and sandrun reloads the toolchain on every new
-  page.
+  with Clang. Runno is faster for C++ cold runs and after reload: sandrun's
+  Clang 22 build downloads slightly less (13.7 MB against 14.2 MB) but takes
+  longer to compile in the browser than Runno's Clang 8.
 - mruby starts faster than CRuby but runs this CPU-bound loop more slowly
   (412 ms against 280 ms warm), so the default trades peak speed for a 1 MB
   download.

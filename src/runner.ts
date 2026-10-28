@@ -19,7 +19,7 @@ export interface RuntimeUrls {
   xccjs: string
   /** Root of the @basthon/xcc-wasm package (build/cc.wasm, build/runtime.wasm). */
   xcc: string
-  /** Root of the @yowasp/clang package (gen/bundle.js and its assets). */
+  /** Root of the @browserrun/clang package (gen/bundle.js and its assets). */
   clang: string
   /** Directory containing yaegi.wasm (the @browserrun/go package). */
   go: string
@@ -43,7 +43,7 @@ export const DEFAULT_RUNTIMES: RuntimeUrls = {
   wasi: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/wasi.js`,
   xccjs: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/xcc.js`,
   xcc: "https://cdn.jsdelivr.net/npm/@basthon/xcc-wasm@0.1.0/",
-  clang: "https://cdn.jsdelivr.net/npm/@yowasp/clang@22.0.0-git20542-10/",
+  clang: "https://cdn.jsdelivr.net/npm/@browserrun/clang@0.1.0/",
   go: "https://cdn.jsdelivr.net/npm/@browserrun/go@0.1.0/",
   java: "https://cdn.jsdelivr.net/npm/@browserrun/java@0.1.0/",
   mrubyjs: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/mruby.js`,
@@ -61,7 +61,7 @@ export interface RunnerOptions {
   maxOutputBytes?: number
   /** Which Python engine to use. "auto" picks MicroPython unless the code imports more. */
   python?: PythonMode
-  /** Which C compiler to use. "xcc" (default, ~0.4 MB) or "clang" (~105 MB, closer to GCC/Clang behaviour). */
+  /** Which C compiler to use. "xcc" (default, ~0.4 MB) or "clang" (~14 MB download, closer to GCC/Clang behaviour). */
   c?: CMode
   /** Which Ruby to use. "auto" picks mruby (~1 MB) unless the code calls `require`; "cruby" is full Ruby 3.4. */
   ruby?: RubyMode
