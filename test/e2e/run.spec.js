@@ -202,3 +202,38 @@ test("java compile errors are reported", async ({ page }) => {
   expect(res.exitCode).toBe(1)
   expect(res.stderr).toContain("Main.java")
 })
+
+test("warm runs reuse the runtime but not program state", async ({ page }) => {
+  const first = await run(page, { language: "python", code: "import statistics\nx = 41\nprint(x + 1)" })
+  expect(first.stdout).toBe("42\n")
+  const second = await run(page, {
+    language: "python",
+    code: "import statistics\ntry:\n    print(x)\nexcept NameError:\n    print('fresh')",
+  })
+  expect(second.stdout).toBe("fresh\n")
+  expect(second.durationMs).toBeLessThan(first.durationMs)
+})
+
+test("runs for the same engine are queued", async ({ page }) => {
+  const results = await page.evaluate(() =>
+    Promise.all(
+      [1, 2, 3].map((n) => window.runner.run({ language: "sql", code: `select ${n} as n;` })),
+    ),
+  )
+  expect(results.map((r) => r.stdout.trim().split("\n").pop())).toEqual(["1", "2", "3"])
+})
+
+test("a timed-out warm worker is replaced", async ({ page }) => {
+  const stuck = await run(page, { language: "python", code: "while True:\n    pass" })
+  expect(stuck.timedOut).toBe(true)
+  const after = await run(page, { language: "python", code: "print('recovered')" })
+  expect(after.stdout).toBe("recovered\n")
+})
+
+test("preload makes the first run faster", async ({ page }) => {
+  await page.evaluate(() => window.runner.preload("sql"))
+  await page.waitForTimeout(3000)
+  const res = await run(page, { language: "sql", code: "select 1 as one;" })
+  expect(res.stdout).toContain("one")
+  expect(res.durationMs).toBeLessThan(500)
+})
