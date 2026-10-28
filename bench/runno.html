@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Runno benchmark</title>
+<script type="module">
+  import { headlessRunCode } from "https://cdn.jsdelivr.net/npm/@runno/runtime@0.10.0/dist/main.js"
+  window.bench = async (runtime, code) => {
+    const t = performance.now()
+    const r = await headlessRunCode(runtime, code)
+    const out = r.resultType === "complete" ? r.stdout + r.stderr : String(r.resultType)
+    return { ms: performance.now() - t, ok: r.resultType === "complete" && r.exitCode === 0, out }
+  }
+</script>

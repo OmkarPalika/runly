@@ -224,6 +224,14 @@ What runly does differently:
 Rust isn't supported: its compiler is too large to ship to a browser. For Rust,
 or for languages runly doesn't cover, use Piston or Judge0 on a server.
 
+## Benchmark
+
+On Chromium, runly's warm runs (second run on a page) were faster than
+Runno's in every language both support: for example 11 ms against 217 ms for
+JavaScript, 4 ms for SQL, 101 ms against 1.76 s for C, and 280 ms against
+694 ms for Ruby. Cold C++ runs were slower than Runno's. Full table, method and
+caveats: [bench/RESULTS.md](bench/RESULTS.md).
+
 ## Browser support
 
 Tested on current Chromium, Firefox and WebKit.

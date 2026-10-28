@@ -1,0 +1,20 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>runly benchmark</title>
+<script type="module">
+  import { createRunner } from "/dist/index.js"
+  const runner = createRunner({
+    timeoutMs: 60000,
+    runtimes: {
+      sucrase: location.origin + "/dist/runtimes/sucrase.js",
+      wasi: location.origin + "/dist/runtimes/wasi.js",
+      go: location.origin + "/runtimes/go/",
+      java: location.origin + "/runtimes/java/",
+    },
+  })
+  window.bench = async (language, code) => {
+    const t = performance.now()
+    const r = await runner.run({ language, code })
+    return { ms: performance.now() - t, ok: r.exitCode === 0, out: r.stdout + r.stderr }
+  }
+</script>
