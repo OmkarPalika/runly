@@ -8,6 +8,12 @@ test("normalizeLanguage resolves names and extensions", () => {
   assert.equal(normalizeLanguage("py"), "python")
   assert.equal(normalizeLanguage("sqlite3"), "sql")
   assert.equal(normalizeLanguage("python"), "python")
+  assert.equal(normalizeLanguage("C++"), "cpp")
+  assert.equal(normalizeLanguage("cc"), "cpp")
+  assert.equal(normalizeLanguage("golang"), "go")
+  assert.equal(normalizeLanguage("rb"), "ruby")
+  assert.equal(normalizeLanguage("java"), "java")
+  assert.equal(normalizeLanguage("c"), "c")
 })
 
 test("normalizeLanguage rejects unsupported languages", () => {
@@ -43,6 +49,7 @@ test("selectEngine honours an explicit Python mode", () => {
 
 test("selectEngine passes other languages through", () => {
   assert.equal(selectEngine("sql", "select 1"), "sql")
+  assert.equal(selectEngine("go", "package main"), "go")
   assert.equal(selectEngine("typescript", "let a: number = 1"), "typescript")
 })
 

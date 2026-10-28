@@ -1,9 +1,19 @@
-export const LANGUAGES = ["javascript", "typescript", "python", "sql"] as const
+export const LANGUAGES = ["javascript", "typescript", "python", "sql", "c", "cpp", "go", "java", "ruby"] as const
 
 export type Language = (typeof LANGUAGES)[number]
 
 /** Engine that actually executes a run. Python has a small and a full one. */
-export type Engine = "javascript" | "typescript" | "micropython" | "pyodide" | "sql"
+export type Engine =
+  | "javascript"
+  | "typescript"
+  | "micropython"
+  | "pyodide"
+  | "sql"
+  | "c"
+  | "cpp"
+  | "go"
+  | "java"
+  | "ruby"
 
 const ALIASES: Record<string, Language> = {
   js: "javascript",
@@ -14,6 +24,13 @@ const ALIASES: Record<string, Language> = {
   python3: "python",
   sqlite: "sql",
   sqlite3: "sql",
+  h: "c",
+  "c++": "cpp",
+  cc: "cpp",
+  cxx: "cpp",
+  hpp: "cpp",
+  golang: "go",
+  rb: "ruby",
 }
 
 /** Map a language name or file extension to a supported language, or null. */
