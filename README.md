@@ -241,12 +241,29 @@ or for languages runly doesn't cover, use Piston or Judge0 on a server.
 
 ## Benchmark
 
-On Chromium, runly's warm runs (second run on a page) were faster than
-Runno's in every language both support: for example 11 ms against 217 ms for
-JavaScript, 4 ms for SQL, 12 ms against 1.76 s for C, and 412 ms against
-901 ms for Ruby. First runs were faster too (C: 147 ms against 3.5 s), except
-C++, where Runno's smaller Clang wins. Full table, method and
-caveats: [bench/RESULTS.md](bench/RESULTS.md).
+runly against [Runno](https://github.com/taybenlor/runno) 0.10.0 on Chromium.
+Each program sums the integers below 1,000,000 and prints the result.
+
+- **First run**: fresh page, empty browser cache (download, start-up and run).
+- **Next run**: the same code again on the same page.
+- **After reload**: first run after reloading the page, files in the HTTP cache.
+
+| Language | runly first run | runly next run | runly after reload | Runno first run | Runno next run | Runno after reload |
+|---|---|---|---|---|---|---|
+| JavaScript | **31 ms** | **11 ms** | **19 ms** | 1.03 s | 217 ms | 225 ms |
+| Python | **1.25 s** | **1.03 s** | **1.03 s** | 3.15 s | 2.59 s | 1.92 s |
+| SQL | **279 ms** | **4 ms** | **71 ms** | did not finish | | |
+| C | **147 ms** | **12 ms** | **55 ms** | 3.50 s | 1.82 s | 1.92 s |
+| C++ | 6.53 s | **2.95 s** | 6.55 s | **5.41 s** | 3.65 s | **4.45 s** |
+| Ruby | **648 ms** | **412 ms** | **644 ms** | 3.48 s | 901 ms | 848 ms |
+| TypeScript | 63 ms | 34 ms | 43 ms | not supported | | |
+| Go | 1.16 s | 418 ms | 1.01 s | not supported | | |
+| Java | 1.43 s | 666 ms | 1.49 s | not supported | | |
+
+Single measurements on one machine and connection; treat gaps under ~20% as
+noise. Runno is faster for C++ on a fresh page because its Clang build is
+smaller. Method, caveats and how to reproduce:
+[bench/RESULTS.md](bench/RESULTS.md).
 
 ## Browser support
 
