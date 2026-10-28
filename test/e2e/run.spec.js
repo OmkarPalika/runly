@@ -81,7 +81,7 @@ test("infinite loops are stopped by the timeout", async ({ page }) => {
 
 test("output is capped", async ({ page }) => {
   const res = await page.evaluate(() =>
-    window.runbox
+    window.runly
       .createRunner({ maxOutputBytes: 100 })
       .run({ language: "javascript", code: "for (;;) console.log('x'.repeat(50))" }),
   )
@@ -110,4 +110,95 @@ test("code cannot reach the host page, its cookies or storage", async ({ page })
 test("unsupported languages are rejected", async ({ page }) => {
   const err = await page.evaluate(() => window.runner.run({ language: "cobol", code: "" }).catch((e) => e.message))
   expect(err).toBe("Unsupported language: cobol")
+})
+
+test("c compiles and reads stdin", async ({ page }) => {
+  const res = await run(page, {
+    language: "c",
+    code: '#include <stdio.h>\nint main(void) { int n; scanf("%d", &n); printf("%d\\n", n * n); return 0; }',
+    stdin: "7",
+  })
+  expect(res.stderr).toBe("")
+  expect(res.stdout).toBe("49\n")
+  expect(res.exitCode).toBe(0)
+})
+
+test("c compile errors are reported", async ({ page }) => {
+  const res = await run(page, { language: "c", code: "int main(void) { return x; }" })
+  expect(res.exitCode).not.toBe(0)
+  expect(res.stderr).toContain("undeclared identifier")
+})
+
+test("c exit codes are returned", async ({ page }) => {
+  const res = await run(page, { language: "c", code: "int main(void) { return 3; }" })
+  expect(res.exitCode).toBe(3)
+})
+
+test("cpp runs with the standard library", async ({ page }) => {
+  const res = await run(page, {
+    language: "c++",
+    code: '#include <iostream>\n#include <vector>\n#include <numeric>\nint main() { std::vector<int> v{1, 2, 3}; std::cout << std::accumulate(v.begin(), v.end(), 0) << "\\n"; }',
+  })
+  expect(res.stderr).toBe("")
+  expect(res.stdout).toBe("6\n")
+})
+
+test("go runs with stdin", async ({ page }) => {
+  const res = await run(page, {
+    language: "go",
+    code: 'package main\n\nimport (\n\t"bufio"\n\t"fmt"\n\t"os"\n\t"strings"\n)\n\nfunc main() {\n\ts := bufio.NewScanner(os.Stdin)\n\ts.Scan()\n\tfmt.Println("hi", strings.ToUpper(s.Text()))\n}\n',
+    stdin: "gopher",
+  })
+  expect(res.stderr).toBe("")
+  expect(res.stdout).toBe("hi GOPHER\n")
+})
+
+test("go errors set a non-zero exit code", async ({ page }) => {
+  const res = await run(page, { language: "go", code: "package main\n\nfunc main() { undefinedThing() }\n" })
+  expect(res.exitCode).not.toBe(0)
+  expect(res.stderr).toContain("undefined")
+})
+
+test("ruby prints and reads stdin", async ({ page }) => {
+  const res = await run(page, {
+    language: "rb",
+    code: 'name = gets.chomp\nputs "hello #{name}"\nputs [1, 2, 3].sum',
+    stdin: "matz",
+  })
+  expect(res.stderr).toBe("")
+  expect(res.stdout).toBe("hello matz\n6\n")
+})
+
+test("ruby exceptions are reported", async ({ page }) => {
+  const res = await run(page, { language: "ruby", code: "raise ArgumentError, 'nope'" })
+  expect(res.exitCode).toBe(1)
+  expect(res.stderr).toContain("nope")
+})
+
+test("java compiles and runs", async ({ page }) => {
+  const res = await run(page, {
+    language: "java",
+    code: [
+      "import java.util.*;",
+      "public class Hello {",
+      "  public static void main(String[] args) {",
+      "    List<Integer> xs = List.of(3, 1, 2);",
+      "    System.out.println(xs.stream().mapToInt(Integer::intValue).sum());",
+      '    System.out.println("hello java");',
+      "  }",
+      "}",
+    ].join("\n"),
+  })
+  expect(res.stderr).toBe("")
+  expect(res.stdout).toBe("6\nhello java\n")
+  expect(res.exitCode).toBe(0)
+})
+
+test("java compile errors are reported", async ({ page }) => {
+  const res = await run(page, {
+    language: "java",
+    code: "public class Main { public static void main(String[] a) { int x = \"no\"; } }",
+  })
+  expect(res.exitCode).toBe(1)
+  expect(res.stderr).toContain("Main.java")
 })

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises"
 import { extname, join, normalize } from "node:path"
 
 const root = new URL("../../", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")
-const types = { ".html": "text/html", ".js": "text/javascript", ".map": "application/json" }
+const types = { ".html": "text/html", ".js": "text/javascript", ".map": "application/json", ".wasm": "application/wasm" }
 
 createServer(async (req, res) => {
   const path = new URL(req.url, "http://localhost").pathname
