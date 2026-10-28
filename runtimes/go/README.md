@@ -1,4 +1,4 @@
-# @sandrun/go
+# @browserrun/go
 
 [yaegi](https://github.com/traefik/yaegi) v0.16.1, the Go interpreter by
 Traefik Labs, compiled to `wasip1/wasm`. sandrun loads `yaegi.wasm` from this

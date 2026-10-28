@@ -8,7 +8,7 @@ is thrown away after every run. It can't see the host page, its cookies or its
 storage, and it can only make network requests to the hosts the runtimes load from.
 
 ```js
-import { createRunner } from "@sandrun/sandrun"
+import { createRunner } from "@browserrun/sandrun"
 
 const runner = createRunner()
 
@@ -26,7 +26,7 @@ result.exitCode // 0
 ## Install
 
 ```sh
-npm install @sandrun/sandrun
+npm install @browserrun/sandrun
 ```
 
 It's a browser-only ES module. It has no dependencies; runtimes are downloaded
@@ -179,8 +179,8 @@ createRunner({
     mrubyjs: "https://static.example.com/sandrun/mruby.js",
     mruby: "https://static.example.com/mruby-wasm-js/",
     clang: "https://static.example.com/yowasp-clang/",
-    go: "https://static.example.com/@sandrun/go/",
-    java: "https://static.example.com/@sandrun/java/",
+    go: "https://static.example.com/@browserrun/go/",
+    java: "https://static.example.com/@browserrun/java/",
     rubyjs: "https://static.example.com/ruby-wasm-wasi/",
     ruby: "https://static.example.com/ruby-3.4-wasm-wasi/",
   },
@@ -281,7 +281,7 @@ npm run test:e2e                  # browser tests (needs network for the CDN run
 ```
 
 The Go and Java runtimes are published as separate packages
-([@sandrun/go](runtimes/go) and [@sandrun/java](runtimes/java)) so that installing
+([@browserrun/go](runtimes/go) and [@browserrun/java](runtimes/java)) so that installing
 sandrun doesn't pull tens of megabytes into your `node_modules`.
 
 ## License

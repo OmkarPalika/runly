@@ -82,8 +82,8 @@ Both MIT licensed:
 | YoWASP Clang (LLVM, Clang, LLD, wasi-libc, libc++) | 22.0.0-git20542-10 | ISC; LLVM parts Apache-2.0 WITH LLVM-exception | https://github.com/YoWASP/clang |
 | xcc compiler and libc (@basthon/xcc-wasm) | 0.1.0 | MIT | https://github.com/tyfkda/xcc |
 | mruby (@takahashim/mruby-wasm-js) | 0.2.0 | MIT | https://github.com/mruby/mruby |
-| yaegi (via @sandrun/go) | 0.16.1 | Apache-2.0 | https://github.com/traefik/yaegi |
-| teavm-javac (via @sandrun/java) | prebuilt from teavm.org | Apache-2.0; bundled OpenJDK parts GPL-2.0 WITH Classpath-exception-2.0 | https://github.com/konsoletyper/teavm-javac |
+| yaegi (via @browserrun/go) | 0.16.1 | Apache-2.0 | https://github.com/traefik/yaegi |
+| teavm-javac (via @browserrun/java) | prebuilt from teavm.org | Apache-2.0; bundled OpenJDK parts GPL-2.0 WITH Classpath-exception-2.0 | https://github.com/konsoletyper/teavm-javac |
 | ruby.wasm | 2.10.1 (CRuby 3.4) | MIT; CRuby under the Ruby License / BSD-2-Clause | https://github.com/ruby/ruby.wasm |
 
 Pyodide also loads CPython (PSF License) and any Python packages a snippet

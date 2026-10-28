@@ -1,5 +1,5 @@
 {
-  "name": "@sandrun/go",
+  "name": "@browserrun/go",
   "version": "0.1.0",
   "description": "The yaegi Go interpreter built for WASI, used by sandrun to run Go in the browser.",
   "license": "Apache-2.0",

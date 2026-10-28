@@ -1,4 +1,4 @@
-# @sandrun/java
+# @browserrun/java
 
 The [teavm-javac](https://github.com/konsoletyper/teavm-javac) compiler (OpenJDK
 javac and TeaVM compiled to WebAssembly). sandrun loads it from this package to
