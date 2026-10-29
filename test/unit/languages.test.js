@@ -96,3 +96,9 @@ test("selectEngine keeps mruby for require_relative", () => {
   assert.equal(selectEngine("ruby", "require_relative 'greeter'"), "mruby")
   assert.equal(selectEngine("ruby", "require 'set'"), "ruby")
 })
+
+test("postgres names resolve to the postgres engine", () => {
+  for (const name of ["postgres", "PostgreSQL", "pg", "psql", "plpgsql"]) assert.equal(normalizeLanguage(name), "postgres")
+  assert.equal(selectEngine("postgres", "select 1"), "postgres")
+  assert.equal(normalizeLanguage("sql"), "sql")
+})

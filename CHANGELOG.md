@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Postgres: `language: "postgres"` (also `postgresql`, `pg`) runs real
+  PostgreSQL via PGlite, with PL/pgSQL functions, enums and notices. Each run
+  starts from an empty database.
+
 ## 0.3.0
 
 - `files` runs several files together: Python modules, JavaScript and

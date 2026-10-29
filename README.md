@@ -41,6 +41,7 @@ on first use and cached by the browser.
 | Python | MicroPython | ~300 KB |
 | Python with heavier imports | Pyodide (CPython) | ~10 MB, plus packages |
 | SQL | sql.js (SQLite) | ~1 MB |
+| Postgres | PGlite (PostgreSQL 18 compiled to WebAssembly) | ~15 MB (~5 MB compressed) |
 | Go | yaegi interpreter, built for WASI | ~40 MB (~8 MB compressed) |
 | Java | OpenJDK javac and TeaVM, compiled to WebAssembly (teavm-javac) | ~7 MB |
 | Ruby | mruby | ~1 MB |
@@ -53,7 +54,9 @@ served from the browser cache. A page that only shows Python never downloads
 the C toolchain.
 
 Language names are case-insensitive and accept common aliases (`js`, `ts`, `py`,
-`sqlite`, `c++`, `golang`, `rb`, ...).
+`sqlite`, `postgresql`, `pg`, `c++`, `golang`, `rb`, ...). `sql` means SQLite;
+use `postgres` for PostgreSQL syntax (`SERIAL`, enums, PL/pgSQL functions,
+`RAISE NOTICE`). Each Postgres run starts from an empty database.
 
 ### Language notes
 

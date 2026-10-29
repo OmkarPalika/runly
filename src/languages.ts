@@ -1,4 +1,4 @@
-export const LANGUAGES = ["javascript", "typescript", "python", "sql", "c", "cpp", "go", "java", "ruby"] as const
+export const LANGUAGES = ["javascript", "typescript", "python", "sql", "postgres", "c", "cpp", "go", "java", "ruby"] as const
 
 export type Language = (typeof LANGUAGES)[number]
 
@@ -12,6 +12,7 @@ export type Engine =
   | "micropython"
   | "pyodide"
   | "sql"
+  | "postgres"
   | "xcc"
   | "c"
   | "cpp"
@@ -29,6 +30,11 @@ const ALIASES: Record<string, Language> = {
   python3: "python",
   sqlite: "sql",
   sqlite3: "sql",
+  postgresql: "postgres",
+  pg: "postgres",
+  pgsql: "postgres",
+  psql: "postgres",
+  plpgsql: "postgres",
   h: "c",
   "c++": "cpp",
   cc: "cpp",

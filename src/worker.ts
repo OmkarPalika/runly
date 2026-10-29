@@ -190,6 +190,21 @@ export function workerMain(): void {
         return loadPyodide({ indexURL: job.runtimes.pyodide })
       }),
 
+    postgres: (job) =>
+      once("postgres", async () => {
+        // The bundled PGlite can't find its assets relative to itself, so they
+        // are passed in. (Its own multi-chunk build fails to load in Firefox's
+        // sandboxed workers.)
+        const base = job.runtimes.pglite + "dist/"
+        const [{ PGlite }, pgliteWasmModule, initdbWasmModule, fsBundle] = await Promise.all([
+          importUrl(job.runtimes.pglitejs),
+          WebAssembly.compileStreaming(fetch(base + "pglite.wasm")),
+          WebAssembly.compileStreaming(fetch(base + "initdb.wasm")),
+          fetch(base + "pglite.data").then((r) => r.blob()),
+        ])
+        return PGlite.create({ pgliteWasmModule, initdbWasmModule, fsBundle })
+      }),
+
     sql: (job) =>
       once("sql", async () => {
         const source = await (await fetch(job.runtimes.sqljs + "sql-wasm.js")).text()
@@ -430,6 +445,26 @@ export function workerMain(): void {
       } finally {
         db.close()
       }
+    },
+
+    // One Postgres instance stays warm per worker; each run starts from an
+    // empty database by dropping every user schema first.
+    postgres: async (job) => {
+      const db = await loaders.postgres(job)
+      await db.exec(`ROLLBACK;
+DO $$ DECLARE s text; BEGIN
+  FOR s IN SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg\\_%' AND nspname <> 'information_schema' LOOP
+    EXECUTE format('DROP SCHEMA %I CASCADE', s);
+  END LOOP;
+END $$;
+CREATE SCHEMA public;
+SET search_path TO public;`)
+      const notices = (n: { severity?: string; message?: string }) => stdout(`${n.severity ?? "NOTICE"}: ${n.message ?? ""}\n`)
+      post({ type: "ready" })
+      const sql = sourcesOf(job, "main.sql").map((f: SourceFile) => f.content).join(";\n")
+      const results = (await db.exec(sql, { rowMode: "array", onNotice: notices })) as { rows: unknown[][]; fields: { name: string }[] }[]
+      const tables = results.filter((r) => r.fields.length).map((r) => formatTable(r.fields.map((f) => f.name), r.rows))
+      stdout(tables.join("\n\n") + (tables.length ? "\n" : ""))
     },
 
     // xcc is packaged as a REPL: the program is compiled as one cell, then

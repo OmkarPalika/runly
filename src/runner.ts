@@ -13,6 +13,10 @@ export interface RuntimeUrls {
   pyodide: string
   /** Directory containing sql-wasm.js and sql-wasm.wasm. */
   sqljs: string
+  /** ES module URL of PGlite (a single-file build ships in this package). Used for Postgres. */
+  pglitejs: string
+  /** Root of the @electric-sql/pglite package (dist/pglite.wasm, dist/initdb.wasm, dist/pglite.data). */
+  pglite: string
   /** ES module URL of browser_wasi_shim (a single-file build ships in this package). Used for C, C++ and Go. */
   wasi: string
   /** ES module URL of the xcc C compiler glue (a single-file build ships in this package). */
@@ -40,6 +44,8 @@ export const DEFAULT_RUNTIMES: RuntimeUrls = {
   micropython: "https://cdn.jsdelivr.net/npm/@micropython/micropython-webassembly-pyscript@1.29.0-6/",
   pyodide: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/",
   sqljs: "https://cdn.jsdelivr.net/npm/sql.js@1.15.2/dist/",
+  pglitejs: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/pglite.js`,
+  pglite: "https://cdn.jsdelivr.net/npm/@electric-sql/pglite@0.5.13/",
   wasi: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/wasi.js`,
   xccjs: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/xcc.js`,
   xcc: "https://cdn.jsdelivr.net/npm/@basthon/xcc-wasm@0.1.0/",
