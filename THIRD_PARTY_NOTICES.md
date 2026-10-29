@@ -72,6 +72,12 @@ Both MIT licensed:
   https://github.com/tyfkda/xcc (MIT)
 - https://github.com/takahashim/mruby-wasm-runtime, built on https://github.com/mruby/mruby (MIT)
 
+### PGlite 0.5.13 JavaScript (`dist/runtimes/pglite.js`)
+
+https://github.com/electric-sql/pglite. Copyright ElectricSQL. Licensed under
+the Apache License, Version 2.0: https://www.apache.org/licenses/LICENSE-2.0.
+Bundled unmodified into a single file.
+
 ## Loaded at run time (not redistributed in this package)
 
 | Project | Version | License | Source |
@@ -79,6 +85,7 @@ Both MIT licensed:
 | MicroPython (WebAssembly port) | 1.29.0-6 | MIT | https://github.com/micropython/micropython |
 | Pyodide | 314.0.7 | MPL-2.0 | https://github.com/pyodide/pyodide |
 | sql.js | 1.15.2 | MIT | https://github.com/sql-js/sql.js |
+| PGlite WebAssembly and data files (PostgreSQL 18) | 0.5.13 | Apache-2.0; PostgreSQL under the PostgreSQL License | https://github.com/electric-sql/pglite |
 | YoWASP Clang (LLVM, Clang, LLD, wasi-libc, libc++) | 22.0.0-git20542-10 | ISC; LLVM parts Apache-2.0 WITH LLVM-exception | https://github.com/YoWASP/clang |
 | xcc compiler and libc (@basthon/xcc-wasm) | 0.1.0 | MIT | https://github.com/tyfkda/xcc |
 | mruby (@takahashim/mruby-wasm-js) | 0.2.0 | MIT | https://github.com/mruby/mruby |
