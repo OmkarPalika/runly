@@ -43,7 +43,7 @@ export const DEFAULT_RUNTIMES: RuntimeUrls = {
   wasi: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/wasi.js`,
   xccjs: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/xcc.js`,
   xcc: "https://cdn.jsdelivr.net/npm/@basthon/xcc-wasm@0.1.0/",
-  clang: "https://cdn.jsdelivr.net/npm/@browserrun/clang@0.1.0/",
+  clang: "https://cdn.jsdelivr.net/npm/@browserrun/clang@0.1.1/",
   go: "https://cdn.jsdelivr.net/npm/@browserrun/go@0.1.0/",
   java: "https://cdn.jsdelivr.net/npm/@browserrun/java@0.1.0/",
   mrubyjs: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/mruby.js`,
