@@ -16,6 +16,10 @@ export function workerMain(): void {
   const stdout = write("stdout")
   const stderr = write("stderr")
 
+  // Runtimes are loaded from URLs at run time. The comments stop bundlers that
+  // process this file (it ships as a module too) from trying to resolve them.
+  const importUrl = (url: string) => import(/* webpackIgnore: true */ /* @vite-ignore */ /* turbopackIgnore: true */ url)
+
   // Report download progress of runtime files. Each worker serves one engine,
   // which the first message names.
   let engine = ""
@@ -146,7 +150,7 @@ export function workerMain(): void {
     args: string[],
     files: Record<string, string | Uint8Array>,
   ): Promise<number> => {
-    const shim = await once("wasi", () => import(job.runtimes.wasi))
+    const shim = await once("wasi", () => importUrl(job.runtimes.wasi))
     const encoder = new TextEncoder()
     const dir = new Map(
       Object.entries(files).map(([name, data]) => [
@@ -173,16 +177,16 @@ export function workerMain(): void {
   // The engine table. `load` fetches and initialises the runtime (cached per
   // worker); `run` executes one job with it.
   const loaders: Record<string, (job: any) => Promise<any>> = {
-    wasiShim: (job) => once("wasi", () => import(job.runtimes.wasi)),
+    wasiShim: (job) => once("wasi", () => importUrl(job.runtimes.wasi)),
 
-    typescript: (job) => once("sucrase", () => import(job.runtimes.sucrase)),
+    typescript: (job) => once("sucrase", () => importUrl(job.runtimes.sucrase)),
 
     micropython: (job) =>
-      once("micropython", async () => (await import(job.runtimes.micropython + "micropython.mjs")).loadMicroPython),
+      once("micropython", async () => (await importUrl(job.runtimes.micropython + "micropython.mjs")).loadMicroPython),
 
     pyodide: (job) =>
       once("pyodide", async () => {
-        const { loadPyodide } = await import(job.runtimes.pyodide + "pyodide.mjs")
+        const { loadPyodide } = await importUrl(job.runtimes.pyodide + "pyodide.mjs")
         return loadPyodide({ indexURL: job.runtimes.pyodide })
       }),
 
@@ -198,21 +202,21 @@ export function workerMain(): void {
 
     cpp: (job) =>
       once("clang", async () => {
-        const toolchain = await import(job.runtimes.clang + "gen/bundle.js")
-        await once("wasi", () => import(job.runtimes.wasi))
+        const toolchain = await importUrl(job.runtimes.clang + "gen/bundle.js")
+        await once("wasi", () => importUrl(job.runtimes.wasi))
         return toolchain.runClang
       }),
 
     go: (job) =>
       once("go", async () => {
-        await once("wasi", () => import(job.runtimes.wasi))
+        await once("wasi", () => importUrl(job.runtimes.wasi))
         return WebAssembly.compileStreaming(fetch(job.runtimes.go + "yaegi.wasm"))
       }),
 
     java: (job) =>
       once("java", async () => {
         const base = job.runtimes.java
-        const { load } = await import(base + "compiler.wasm-runtime.js")
+        const { load } = await importUrl(base + "compiler.wasm-runtime.js")
         const [lib, sdk, classlib] = await Promise.all([
           load(base + "compiler.wasm"),
           fetchBytes(base + "compile-classlib-teavm.bin"),
@@ -235,7 +239,7 @@ export function workerMain(): void {
     xcc: (job) =>
       once("xcc", async () => {
         const [lib, cc, runtime] = await Promise.all([
-          import(job.runtimes.xccjs),
+          importUrl(job.runtimes.xccjs),
           WebAssembly.compileStreaming(fetch(job.runtimes.xcc + "build/cc.wasm")),
           WebAssembly.compileStreaming(fetch(job.runtimes.xcc + "build/runtime.wasm")),
         ])
@@ -244,7 +248,7 @@ export function workerMain(): void {
 
     mruby: (job) =>
       once("mruby", async () => {
-        const [lib] = await Promise.all([import(job.runtimes.mrubyjs), once("wasi", () => import(job.runtimes.wasi))])
+        const [lib] = await Promise.all([importUrl(job.runtimes.mrubyjs), once("wasi", () => importUrl(job.runtimes.wasi))])
         return lib.createVM
       }),
 
