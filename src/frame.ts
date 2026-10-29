@@ -21,10 +21,19 @@ export function frameMain(workerSource: string): void {
   }
   const slots = new Map<string, Slot>()
 
+  // Download progress goes straight to the page, whether or not a run is waiting.
+  const spawn = () => {
+    const worker = new Worker(workerUrl)
+    worker.addEventListener("message", (e) => {
+      if (e.data?.type === "progress") reply(e.data)
+    })
+    return worker
+  }
+
   const slotFor = (engine: string): Slot => {
     let slot = slots.get(engine)
     if (!slot) {
-      slot = { worker: new Worker(workerUrl), busy: false, queue: [] }
+      slot = { worker: spawn(), busy: false, queue: [] }
       slots.set(engine, slot)
     }
     return slot
@@ -104,7 +113,7 @@ export function frameMain(workerSource: string): void {
 
   const start = (job: any) => {
     if (disposable.has(job.engine)) {
-      execute(job, { worker: new Worker(workerUrl), busy: false, queue: [] }, false)
+      execute(job, { worker: spawn(), busy: false, queue: [] }, false)
       return
     }
     const slot = slotFor(job.engine)

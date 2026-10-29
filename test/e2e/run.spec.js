@@ -297,3 +297,13 @@ test("ruby with require uses CRuby", async ({ page }) => {
   expect(res.engine).toBe("ruby")
   expect(res.stdout).toBe("2\n")
 })
+
+test("reports runtime download progress", async ({ page }) => {
+  const res = await run(page, { language: "sql", code: "select 1 as n;" })
+  expect(res.stderr).toBe("")
+  const progress = await page.evaluate(() => window.progress ?? [])
+  const sql = progress.filter((p) => p.engine === "sql")
+  expect(sql.length).toBeGreaterThan(0)
+  const last = sql.at(-1)
+  expect(last.loaded).toBeGreaterThan(100_000)
+})

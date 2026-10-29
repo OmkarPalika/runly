@@ -94,12 +94,13 @@ knows about. Force one engine with `python: "micropython"` or `python: "pyodide"
 | `python` | `"auto"` | `"auto"`, `"micropython"` or `"pyodide"`. |
 | `c` | `"xcc"` | `"xcc"` or `"clang"`. |
 | `ruby` | `"auto"` | `"auto"`, `"mruby"` or `"cruby"`. |
+| `onProgress` | | `({ engine, loaded, total })` while a runtime downloads, for a progress bar. `total` is 0 if sizes are unknown. |
 | `runtimes` | jsDelivr | Override where each runtime is loaded from (see below). |
 | `container` | `document.body` | Where the hidden sandbox iframe is attached. |
 
 The iframe is created on the first `run`, not when the runner is created.
 
-### `runner.run({ language, code, stdin?, onOutput? })`
+### `runner.run({ language, code?, files?, stdin?, onOutput? })`
 
 Resolves with:
 
@@ -124,6 +125,30 @@ Errors in the user's code don't reject; they show up in `stderr` with
 `stdin` is passed in up front. In Python, `input()` reads it line by line; in
 JavaScript and TypeScript it's available as the `stdin` string; C, C++, Go and
 Ruby read it from standard input as usual. Java doesn't support it.
+
+### Several files
+
+Pass `files` instead of `code`. The first file is the entry point; the others
+can be imported or included by name.
+
+```js
+await runner.run({
+  language: "python",
+  files: [
+    { name: "main.py", content: "from helper import greet\nprint(greet('you'))" },
+    { name: "helper.py", content: "def greet(n):\n    return 'hi ' + n" },
+  ],
+})
+```
+
+- Python: `import helper` loads `helper.py`.
+- JavaScript, TypeScript: `import ... from "./lib"` or `require("./lib")`.
+- C, C++: headers are available to `#include "..."` and every source file is
+  compiled. Multi-file C uses Clang.
+- Go: the files are one `package main`.
+- Java: one public class per file.
+- Ruby: `require_relative "lib"`.
+- SQL: the files run in order.
 
 ### `runner.preload(language, code?)`
 

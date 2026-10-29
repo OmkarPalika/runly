@@ -16,6 +16,36 @@ export function workerMain(): void {
   const stdout = write("stdout")
   const stderr = write("stderr")
 
+  // Report download progress of runtime files. Each worker serves one engine,
+  // which the first message names.
+  let engine = ""
+  const nativeFetch = scope.fetch.bind(scope)
+  scope.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const response: Response = await nativeFetch(input, init)
+    if (!response.ok || !response.body) return response
+    const url = response.url || String(input)
+    const total = Number(response.headers.get("content-length")) || 0
+    let loaded = 0
+    let last = 0
+    const report = () => scope.postMessage({ type: "progress", engine, url, loaded, total })
+    const counted = response.body.pipeThrough(
+      new TransformStream({
+        transform(chunk, controller) {
+          loaded += chunk.byteLength
+          if (performance.now() - last > 100) {
+            last = performance.now()
+            report()
+          }
+          controller.enqueue(chunk)
+        },
+        flush: report,
+      }),
+    )
+    const copy = new Response(counted, { status: response.status, statusText: response.statusText, headers: response.headers })
+    Object.defineProperty(copy, "url", { value: url })
+    return copy
+  }
+
   const format = (value: unknown): string => {
     if (typeof value === "string") return value
     if (value instanceof Error) return value.stack ?? String(value)
@@ -86,6 +116,26 @@ export function workerMain(): void {
     const widths = columns.map((_, i) => Math.max(...cells.map((r) => String(r[i]).length)))
     const fmt = (r: unknown[]) => r.map((v, i) => String(v).padEnd(widths[i])).join(" | ").trimEnd()
     return [fmt(cells[0]), widths.map((w) => "-".repeat(w)).join("-+-"), ...cells.slice(1).map(fmt)].join("\n")
+  }
+
+  // Merge the files of one Go package: a single package clause, the union of
+  // their imports, then each file's declarations.
+  const mergeGo = (files: SourceFile[]): string => {
+    const imports = new Set<string>()
+    const bodies = files.map((f) =>
+      f.content
+        .replace(/^\s*package\s+\w+\s*$/m, "")
+        .replace(/^\s*import\s*\(([\s\S]*?)\)/gm, (_, list: string) => {
+          for (const line of list.split("\n")) if (line.trim()) imports.add(line.trim())
+          return ""
+        })
+        .replace(/^\s*import\s+((?:\w+\s+)?"[^"]+")\s*$/gm, (_, spec: string) => {
+          imports.add(spec)
+          return ""
+        }),
+    )
+    const imported = [...imports].map((i) => "\t" + i).join("\n")
+    return `package main\n\nimport (\n${imported}\n)\n\n${bodies.join("\n")}`
   }
 
   // Run a WASI command with stdin, streamed stdout/stderr and an in-memory
@@ -207,13 +257,17 @@ export function workerMain(): void {
 
   const compileC = async (job: any, driver: "clang" | "clang++", source: string): Promise<number> => {
     const runClang = await loaders.cpp(job)
-    let files: Record<string, Uint8Array>
     // The toolchain logs download progress with console.log, which would end
     // up in stdout. Silence it while compiling.
     const log = scope.console.log
     scope.console.log = () => {}
+    // Every file is available to #include; each source file is compiled.
+    let files: Record<string, Uint8Array>
+    const inputs = sourcesOf(job, source)
+    const sourceExt = driver === "clang" ? /\.c$/ : /\.(c|cc|cpp|cxx|c\+\+)$/
+    const sources = inputs.map((f) => f.name).filter((n, i) => i === 0 || sourceExt.test(n))
     const compile = (flags: string[], onStderr: (b: Uint8Array | null) => void) =>
-      runClang([driver, source, "-O1", ...flags, "-o", "main.wasm"], { [source]: job.code }, {
+      runClang([driver, ...sources, "-O1", ...flags, "-o", "main.wasm"], Object.fromEntries(inputs.map((f) => [f.name, f.content])), {
         stdout: decoderFor(stdout),
         stderr: onStderr,
       })
@@ -251,10 +305,69 @@ export function workerMain(): void {
   // Single-quoted Ruby literal: only backslash and quote need escaping.
   const rubyString = (text: string) => `'${text.replace(/[\\']/g, (c) => "\\" + c)}'`
 
+  type SourceFile = { name: string; content: string }
+  // The run's files with the entry point first; an unnamed entry gets `entry`.
+  const sourcesOf = (job: any, entry: string): SourceFile[] =>
+    (job.files ?? [{ name: "", content: job.code }]).map((f: SourceFile, i: number) =>
+      i === 0 && !f.name ? { name: entry, content: f.content } : f,
+    )
+
+  // Resolves a relative import ("./lib", "lib.js") to one of the run's files.
+  const findFile = (files: SourceFile[], spec: string, exts: string[]) => {
+    const base = spec.replace(/^\.\//, "")
+    for (const name of [base, ...exts.map((e) => base + e), ...exts.map((e) => base + "/index" + e)]) {
+      const file = files.find((f) => f.name === name)
+      if (file) return file
+    }
+  }
+
+  // JavaScript or TypeScript split across files: each file becomes a CommonJS
+  // module (ES imports are rewritten by Sucrase), and the entry point runs with
+  // a `require` that resolves the other files.
+  const runModules = async (job: any, files: SourceFile[], typescript: boolean) => {
+    const { transform } = await loaders.typescript(job)
+    const exts = [".ts", ".tsx", ".js", ".mjs", ".cjs"]
+    const compile = (f: SourceFile) =>
+      transform(f.content, { transforms: typescript ? ["typescript", "imports"] : ["imports"], filePath: f.name }).code
+    const cache = new Map<string, any>()
+    const require = (spec: string) => {
+      const file = findFile(files, spec, exts)
+      if (!file) throw new Error(`Cannot find module '${spec}'`)
+      if (!cache.has(file.name)) {
+        const module = { exports: {} as any }
+        cache.set(file.name, module)
+        new Function("require", "module", "exports", compile(file))(require, module, module.exports)
+      }
+      return cache.get(file.name).exports
+    }
+    const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor
+    const entry = { exports: {} }
+    cache.set(files[0].name, entry)
+    post({ type: "ready" })
+    await new AsyncFunction("stdin", "require", "module", "exports", compile(files[0]))(job.stdin, require, entry, entry.exports)
+  }
+
+  // Ruby: `require_relative "x"` lines are replaced by the file's contents, once
+  // per file, which works the same in mruby (no file system) and CRuby.
+  const inlineRuby = (files: SourceFile[]) => {
+    const seen = new Set<string>()
+    const expand = (file: SourceFile): string => {
+      seen.add(file.name)
+      return file.content.replace(/^[ \t]*require_relative[ \t(]+["']([^"']+)["'][ \t)]*$/gm, (line, spec) => {
+        const target = findFile(files, spec, [".rb"])
+        if (!target) return line
+        return seen.has(target.name) ? "" : expand(target)
+      })
+    }
+    return expand(files[0])
+  }
+
   const engines: Record<string, (job: any) => Promise<number | void>> = {
-    javascript: (job) => runJavaScript(job.code, job.stdin),
+    javascript: (job) =>
+      job.files?.length > 1 ? runModules(job, sourcesOf(job, "main.js"), false) : runJavaScript(job.code, job.stdin),
 
     typescript: async (job) => {
+      if (job.files?.length > 1) return runModules(job, sourcesOf(job, "main.ts"), true)
       const { transform } = await loaders.typescript(job)
       const js = transform(job.code, { transforms: ["typescript"], disableESTransforms: true }).code
       await runJavaScript(js, job.stdin)
@@ -270,6 +383,8 @@ export function workerMain(): void {
         stdout: decoderFor(stdout),
         stderr: decoderFor(stderr),
       })
+      // Sibling modules go next to the entry point, which is on sys.path.
+      for (const f of sourcesOf(job, "main.py").slice(1)) mp.FS.writeFile("/" + f.name, f.content)
       mp.runPython(pythonStdin(job.stdin))
       post({ type: "ready" })
       await mp.runPythonAsync(job.code)
@@ -279,7 +394,15 @@ export function workerMain(): void {
       const py = await loaders.pyodide(job)
       py.setStdout({ batched: (t: string) => stdout(t + "\n") })
       py.setStderr({ batched: (t: string) => stderr(t + "\n") })
-      await py.loadPackagesFromImports(job.code)
+      const files = sourcesOf(job, "main.py")
+      await py.loadPackagesFromImports(files.map((f: SourceFile) => f.content).join("\n"), { messageCallback: () => {} })
+      // Sibling modules are written to the working directory, which is on
+      // sys.path. Pyodide outlives the run, so drop earlier copies of them.
+      const local = files.slice(1).map((f: SourceFile) => f.name)
+      for (const f of files.slice(1)) py.FS.writeFile(f.name, f.content)
+      py.runPython(
+        `import sys, importlib\nfor m in ${JSON.stringify(local.map((n: string) => n.replace(/\.py$/, "")))}: sys.modules.pop(m, None)\nimportlib.invalidate_caches()`,
+      )
       // Fresh globals per run; imported modules stay cached in sys.modules.
       const globals = py.globals.get("dict")()
       try {
@@ -288,6 +411,7 @@ export function workerMain(): void {
         await py.runPythonAsync(job.code, { globals })
       } finally {
         globals.destroy()
+        for (const name of local) py.FS.unlink(name)
       }
     },
 
@@ -296,7 +420,8 @@ export function workerMain(): void {
       const db = new SQL.Database()
       post({ type: "ready" })
       try {
-        const results = db.exec(job.code) as { columns: string[]; values: unknown[][] }[]
+        const sql = sourcesOf(job, "main.sql").map((f: SourceFile) => f.content).join(";\n")
+        const results = db.exec(sql) as { columns: string[]; values: unknown[][] }[]
         stdout(results.map((r) => formatTable(r.columns, r.values)).join("\n\n") + (results.length ? "\n" : ""))
       } finally {
         db.close()
@@ -334,7 +459,10 @@ export function workerMain(): void {
 
     go: async (job) => {
       const module = await loaders.go(job)
-      return runWasi(job, module, ["yaegi", "run", "/w/main.go"], { "main.go": job.code })
+      const files = sourcesOf(job, "main.go")
+      // yaegi runs one file, so a package split across files is merged.
+      const code = files.length > 1 ? mergeGo(files) : files[0].content
+      return runWasi(job, module, ["yaegi", "run", "/w/main.go"], { "main.go": code })
     },
 
     java: async (job) => {
@@ -342,8 +470,10 @@ export function workerMain(): void {
       compiler.clearSourceFiles()
       compiler.clearOutputFiles()
       // javac requires a public class to live in a file of the same name.
-      const name = /public\s+(?:(?:final|abstract)\s+)*class\s+(\w+)/.exec(job.code)?.[1] ?? "Main"
-      compiler.addSourceFile(`${name}.java`, job.code)
+      for (const f of job.files ?? [{ name: "", content: job.code }]) {
+        const name = /public\s+(?:(?:final|abstract)\s+)*class\s+(\w+)/.exec(f.content)?.[1] ?? (f.name.replace(/\.java$/, "") || "Main")
+        compiler.addSourceFile(`${name}.java`, f.content)
+      }
       if (!compiler.compile()) return 1
       const mainClass = compiler.detectMainClasses()[0]
       if (!mainClass) {
@@ -377,7 +507,7 @@ export function workerMain(): void {
         onStart: (instance: WebAssembly.Instance) => wasi.initialize(instance),
       })
       post({ type: "ready" })
-      vm.eval(job.code, { filename: "main.rb" })
+      vm.eval(inlineRuby(sourcesOf(job, "main.rb")), { filename: "main.rb" })
     },
 
     ruby: async (job) => {
@@ -389,12 +519,13 @@ export function workerMain(): void {
       const { vm } = await scope["ruby-wasm-wasi"].DefaultRubyVM(module)
       vm.eval(`require "stringio"; $stdin = StringIO.new(${rubyString(job.stdin)})`)
       post({ type: "ready" })
-      vm.eval(job.code)
+      vm.eval(inlineRuby(sourcesOf(job, "main.rb")))
     },
   }
 
   scope.onmessage = async (event: MessageEvent) => {
     const msg = event.data
+    engine = msg.engine
     if (msg.type === "preload") {
       // Load in the background; a failure surfaces on the next real run.
       const loading = loaders[msg.engine]?.(msg)

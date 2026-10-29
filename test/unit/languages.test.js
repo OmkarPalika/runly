@@ -56,7 +56,6 @@ test("selectEngine uses xcc for C unless clang is requested", () => {
 test("selectEngine uses mruby unless the code requires a library", () => {
   assert.equal(selectEngine("ruby", "puts 1"), "mruby")
   assert.equal(selectEngine("ruby", "require 'set'\nputs Set.new"), "ruby")
-  assert.equal(selectEngine("ruby", "x = 1\n  require_relative 'a'"), "ruby")
   assert.equal(selectEngine("ruby", "puts 'require me'"), "mruby")
   assert.equal(selectEngine("ruby", "puts 1", { ruby: "cruby" }), "ruby")
   assert.equal(selectEngine("ruby", "require 'set'", { ruby: "mruby" }), "mruby")
@@ -81,4 +80,19 @@ test("VERSION matches package.json", async () => {
   const { VERSION } = await import("../../dist/version.js")
   const pkg = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
   assert.equal(VERSION, pkg.version)
+})
+
+test("selectEngine ignores imports of sibling files", () => {
+  assert.equal(selectEngine("python", "import helper\nfrom stats import mean", {}, ["main.py", "helper.py", "stats.py"]), "micropython")
+  assert.equal(selectEngine("python", "import helper\nimport numpy", {}, ["main.py", "helper.py"]), "pyodide")
+})
+
+test("selectEngine uses clang for C split across files", () => {
+  assert.equal(selectEngine("c", "int main(void){}", {}, ["main.c", "util.c"]), "c")
+  assert.equal(selectEngine("c", "int main(void){}", {}, ["main.c"]), "xcc")
+})
+
+test("selectEngine keeps mruby for require_relative", () => {
+  assert.equal(selectEngine("ruby", "require_relative 'greeter'"), "mruby")
+  assert.equal(selectEngine("ruby", "require 'set'"), "ruby")
 })

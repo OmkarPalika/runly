@@ -38,7 +38,7 @@ export interface RuntimeUrls {
 export const DEFAULT_RUNTIMES: RuntimeUrls = {
   sucrase: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/sucrase.js`,
   micropython: "https://cdn.jsdelivr.net/npm/@micropython/micropython-webassembly-pyscript@1.29.0-6/",
-  pyodide: "https://cdn.jsdelivr.net/npm/pyodide@314.0.7/",
+  pyodide: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/",
   sqljs: "https://cdn.jsdelivr.net/npm/sql.js@1.15.2/dist/",
   wasi: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/wasi.js`,
   xccjs: `https://cdn.jsdelivr.net/npm/@browserrun/sandrun@${VERSION}/dist/runtimes/xcc.js`,
@@ -67,13 +67,37 @@ export interface RunnerOptions {
   ruby?: RubyMode
   /** Override where runtimes are loaded from. */
   runtimes?: Partial<RuntimeUrls>
+  /**
+   * Called while a runtime downloads, from a run or a preload. `loaded` and
+   * `total` are bytes summed over the engine's files; `total` is 0 when the
+   * server doesn't send sizes.
+   */
+  onProgress?: (progress: Progress) => void
   /** Element the hidden sandbox iframe is attached to. Default document.body. */
   container?: HTMLElement
 }
 
+export interface Progress {
+  engine: Engine
+  loaded: number
+  total: number
+}
+
+export interface SourceFile {
+  name: string
+  content: string
+}
+
 export interface RunRequest {
   language: string
-  code: string
+  /** The program. Optional when `files` is given. */
+  code?: string
+  /**
+   * Several files run together; the first is the entry point. The others can be
+   * imported or included by name (`import helper`, `#include "util.h"`,
+   * `require_relative "lib"`, `import "./lib.js"`). SQL runs every file in order.
+   */
+  files?: SourceFile[]
   stdin?: string
   /** Called with each chunk of output as it is produced. */
   onOutput?: (stream: "stdout" | "stderr", text: string) => void
@@ -138,9 +162,24 @@ export function createRunner(options: RunnerOptions = {}): Runner {
   let ready: Promise<void> | null = null
   let nextId = 0
 
+  const downloads = new Map<string, Map<string, { loaded: number; total: number }>>()
+
   const onMessage = (event: MessageEvent) => {
     if (!frame || event.source !== frame.contentWindow) return
     const msg = event.data
+    if (msg?.type === "progress") {
+      const files = downloads.get(msg.engine) ?? new Map()
+      downloads.set(msg.engine, files)
+      files.set(msg.url, { loaded: msg.loaded, total: msg.total })
+      let loaded = 0
+      let total = 0
+      for (const f of files.values()) {
+        loaded += f.loaded
+        total += f.total
+      }
+      options.onProgress?.({ engine: msg.engine, loaded, total })
+      return
+    }
     const run = pending.get(msg?.id)
     if (!run) return
     if (msg.type === "output") {
@@ -188,7 +227,11 @@ export function createRunner(options: RunnerOptions = {}): Runner {
     async run(request) {
       const language = normalizeLanguage(request.language)
       if (!language) throw new Error(`Unsupported language: ${request.language}`)
-      const engine = selectEngine(language, request.code, options)
+      const files: SourceFile[] = request.files?.length
+        ? request.files
+        : [{ name: "", content: request.code ?? "" }]
+      const names = files.map((f) => f.name)
+      const engine = selectEngine(language, files.map((f) => f.content).join("\n"), options, names)
       await ensureFrame()
       const id = String(nextId++)
       return new Promise<RunResult>((resolve) => {
@@ -198,7 +241,8 @@ export function createRunner(options: RunnerOptions = {}): Runner {
             type: "run",
             id,
             engine,
-            code: request.code,
+            code: files[0].content,
+            files,
             stdin: request.stdin ?? "",
             runtimes,
             timeoutMs: options.timeoutMs ?? 10_000,

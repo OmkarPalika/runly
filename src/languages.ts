@@ -102,22 +102,29 @@ export interface EngineOptions {
   ruby?: RubyMode
 }
 
-/** Pick the engine for a language, preferring the smallest one that can run the code. */
-export function selectEngine(language: Language, code: string, options: EngineOptions = {}): Engine {
+/**
+ * Pick the engine for a language, preferring the smallest one that can run the
+ * code. `fileNames` are the files of a multi-file run; imports of those files
+ * don't count as library imports.
+ */
+export function selectEngine(language: Language, code: string, options: EngineOptions = {}, fileNames: string[] = []): Engine {
   switch (language) {
     case "python": {
       const mode = options.python ?? "auto"
       if (mode !== "auto") return mode
-      return pythonImports(code).some((m) => !MICROPYTHON_MODULES.has(m)) ? "pyodide" : "micropython"
+      const local = new Set(fileNames.map((n) => n.replace(/\.py$/, "")))
+      return pythonImports(code).some((m) => !MICROPYTHON_MODULES.has(m) && !local.has(m)) ? "pyodide" : "micropython"
     }
     case "c":
-      return options.c === "clang" ? "c" : "xcc"
+      // xcc compiles a single file.
+      return options.c === "clang" || fileNames.length > 1 ? "c" : "xcc"
     case "ruby": {
       const mode = options.ruby ?? "auto"
       if (mode === "mruby") return "mruby"
       if (mode === "cruby") return "ruby"
-      // mruby has no require; anything that loads a library needs CRuby.
-      return /^\s*require(_relative)?\b/m.test(code) ? "ruby" : "mruby"
+      // Loading a library needs CRuby; require_relative of another file in the
+      // run works in both.
+      return /^\s*require\b/m.test(code) ? "ruby" : "mruby"
     }
     default:
       return language

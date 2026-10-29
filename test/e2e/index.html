@@ -11,6 +11,7 @@
       // Runtimes built in this repo are served locally until they are published.
       window.runner = sandrun.createRunner({
         timeoutMs: 3000,
+        onProgress: (p) => (window.progress ??= []).push(p),
         runtimes: {
           sucrase: location.origin + "/dist/runtimes/sucrase.js",
           wasi: location.origin + "/dist/runtimes/wasi.js",

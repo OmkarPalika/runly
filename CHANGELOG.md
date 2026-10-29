@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- `files` runs several files together: Python modules, JavaScript and
+  TypeScript imports, C and C++ sources and headers, Go packages, Java classes,
+  Ruby `require_relative` and SQL scripts.
+- `onProgress` reports runtime download progress.
+- Pyodide now loads from Pyodide's own CDN path, so packages such as numpy
+  install. The npm copy doesn't include package wheels.
+
 ## 0.1.0
 
 First release.
