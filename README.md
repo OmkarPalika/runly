@@ -254,17 +254,18 @@ Each program sums the integers below 1,000,000 and prints the result.
 | Python | **1.25 s** | **1.03 s** | **1.03 s** | 3.15 s | 2.59 s | 1.92 s |
 | SQL | **279 ms** | **4 ms** | **71 ms** | did not finish | | |
 | C | **147 ms** | **12 ms** | **55 ms** | 3.50 s | 1.82 s | 1.92 s |
-| C++ | 6.78 s | 4.19 s | 7.26 s | **5.09 s** | **4.10 s** | **4.19 s** |
+| C++ | **4.85 s** | **2.32 s** | 5.00 s | 6.24 s | 4.17 s | **4.37 s** |
 | Ruby | **648 ms** | **412 ms** | **644 ms** | 3.48 s | 901 ms | 848 ms |
 | TypeScript | 63 ms | 34 ms | 43 ms | not supported | | |
 | Go | 1.16 s | 418 ms | 1.01 s | not supported | | |
 | Java | 1.43 s | 666 ms | 1.49 s | not supported | | |
 
 Single measurements on one machine and connection; treat gaps under ~20% as
-noise. For C++, sandrun downloads slightly less than Runno (13.7 MB against
-14.2 MB) and supports C++20, but Runno starts faster: its Clang 8 build takes
-less time to compile in the browser than Clang 22. Method, caveats and how to
-reproduce:
+noise. C++ figures are medians of five rounds. For C++, sandrun downloads
+slightly less than Runno (13.7 MB against 14.2 MB), supports C++20 and compiles
+about twice as fast once loaded; Runno is still a little faster on the first
+compile after a reload. Calling `preload("cpp")` ahead of time removes most of
+that first-compile cost. Method, caveats and how to reproduce:
 [bench/RESULTS.md](bench/RESULTS.md).
 
 ## Browser support

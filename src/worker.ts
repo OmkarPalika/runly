@@ -212,13 +212,31 @@ export function workerMain(): void {
     // up in stdout. Silence it while compiling.
     const log = scope.console.log
     scope.console.log = () => {}
-    try {
-      // The WASI libc++ is built without exception support.
-      const flags = driver === "clang++" ? ["-std=c++20", "-fno-exceptions"] : []
-      files = await runClang([driver, source, "-O1", ...flags, "-o", "main.wasm"], { [source]: job.code }, {
+    const compile = (flags: string[], onStderr: (b: Uint8Array | null) => void) =>
+      runClang([driver, source, "-O1", ...flags, "-o", "main.wasm"], { [source]: job.code }, {
         stdout: decoderFor(stdout),
-        stderr: decoderFor(stderr),
+        stderr: onStderr,
       })
+    try {
+      if (driver === "clang") {
+        files = await compile([], decoderFor(stderr))
+      } else {
+        // The WASI libc++ is built without exception support.
+        const flags = ["-std=c++20", "-fno-exceptions"]
+        // In C++20 mode libc++ includes many headers only for compatibility,
+        // which more than doubles the time to parse <iostream>. Leave them out
+        // first, and if that fails (the code may rely on them), compile again
+        // with them. Diagnostics are held until we know which attempt counts.
+        const held: Uint8Array[] = []
+        try {
+          files = await compile([...flags, "-D_LIBCPP_REMOVE_TRANSITIVE_INCLUDES"], (b) => b && held.push(b.slice()))
+          const write = decoderFor(stderr)
+          held.forEach((b) => write(b))
+        } catch (err: any) {
+          if (typeof err?.code !== "number") throw err
+          files = await compile(flags, decoderFor(stderr))
+        }
+      }
     } catch (err: any) {
       // Compile errors have already been written to stderr.
       if (typeof err?.code === "number") return err.code || 1
@@ -379,7 +397,18 @@ export function workerMain(): void {
     const msg = event.data
     if (msg.type === "preload") {
       // Load in the background; a failure surfaces on the next real run.
-      loaders[msg.engine]?.(msg).catch(() => {})
+      const loading = loaders[msg.engine]?.(msg)
+      if (msg.engine === "cpp" || msg.engine === "c") {
+        // The browser compiles Clang's functions the first time they run, which
+        // makes the first compile on a page about 2 s slower. Compile a small
+        // program now so that cost is paid before the visitor presses Run.
+        const quiet = { stdout: () => {}, stderr: () => {} }
+        const warmUp = "#include <iostream>\nint main() { std::cout << 1; }\n"
+        loading?.then((runClang: any) =>
+          runClang(["clang++", "w.cpp", "-O1", "-std=c++20", "-fno-exceptions", "-D_LIBCPP_REMOVE_TRANSITIVE_INCLUDES", "-o", "w.wasm"], { "w.cpp": warmUp }, quiet),
+        ).catch(() => {})
+      }
+      loading?.catch(() => {})
       return
     }
     current = msg.id

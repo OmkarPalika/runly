@@ -153,6 +153,22 @@ test("cpp supports C++20", async ({ page }) => {
   expect(res.stdout).toBe("12\n")
 })
 
+test("cpp code that relies on transitive includes still compiles", async ({ page }) => {
+  // <iostream> brings in std::string and std::max only transitively.
+  const res = await run(page, {
+    language: "c++",
+    code: '#include <iostream>\nint main() { std::string s = "ab"; std::cout << s << std::max(1, 2) << "\\n"; }',
+  })
+  expect(res.stderr).toBe("")
+  expect(res.stdout).toBe("ab2\n")
+})
+
+test("cpp compile errors are reported once", async ({ page }) => {
+  const res = await run(page, { language: "c++", code: "int main() { undefined_thing(); }" })
+  expect(res.exitCode).not.toBe(0)
+  expect(res.stderr.match(/undeclared identifier/g)).toHaveLength(1)
+})
+
 test("go runs with stdin", async ({ page }) => {
   const res = await run(page, {
     language: "go",
